@@ -1,0 +1,36 @@
+# Xcode
+.DS_Store
+xcuserdata/
+DerivedData/
+build/
+*.xcuserstate
+
+# Swift Package Manager
+/.build/
+Packages/
+Package.pins
+Package.resolved
+
+# CocoaPods 
+Pods/
+Podfile.lock
+
+# Carthage
+Carthage/Build/
+
+# Firebase / Secrets
+GoogleService-Info.plist
+
+# Logs
+*.log
+
+# Temporary files
+*.swp
+*.swo
+
+# Project settings that should stay local
+*.xccheckout
+*.xcscmblueprint
+
+# Ignore personal schemes
+xcshareddata/WorkspaceSettings.xcsettings
