@@ -11,27 +11,31 @@ struct ContentView: View {
     @StateObject private var auth = AuthViewModel()
 
     var body: some View {
-        VStack(spacing: 20) {
+        Group {
             if auth.isSignedIn {
-                Text("Salut, \(auth.displayName ?? "user")! ❤️")
-                    .font(.title3)
-                Button("Sign out") {
-                    auth.signOut()
-                }
-                .buttonStyle(.borderedProminent)
+                HomeView(displayName: auth.displayName, onSignOut: auth.signOut)
             } else {
-                Button {
-                    auth.signInWithGoogle()
-                } label: {
-                    Label("Continue with Google", systemImage: "g.circle.fill")
-                }
-                .buttonStyle(.borderedProminent)
+                WelcomeView().environmentObject(auth)
             }
+        }
+        .animation(.easeInOut, value: auth.isSignedIn)
+    }
+}
+
+private struct HomeView: View {
+    let displayName: String?
+    let onSignOut: () -> Void
+
+    var body: some View {
+        VStack(spacing: 16) {
+            Text("Welcome, \(displayName ?? "user") ❤️")
+                .font(.title2).fontWeight(.semibold)
+            Button("Sign out", action: onSignOut)
+                .buttonStyle(PrimaryCapsuleStyle())
         }
         .padding()
     }
 }
-
 
 #Preview {
     ContentView()
