@@ -71,6 +71,7 @@ final class AuthViewModel: ObservableObject {
                 }
 
                 self.isSignedIn = true
+                UIImpactFeedbackGenerator(style: .soft).impactOccurred()
                 self.displayName = authResult?.user.displayName
                 print("Signed in as:", self.displayName ?? "(no name)")
             }
