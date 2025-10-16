@@ -32,8 +32,21 @@ class AppDelegate: NSObject, UIApplicationDelegate {
 @main
 struct Noi2App: App {
     @UIApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
+    @State private var showSplash = true
 
     var body: some Scene {
-        WindowGroup { ContentView() }
+        WindowGroup {
+            Group {
+                if showSplash {
+                    SplashView {
+                        showSplash = false
+                    }
+                    .transition(.opacity)
+                } else {
+                    ContentView()
+                        .transition(.opacity)
+                }
+            }
+        }
     }
 }
