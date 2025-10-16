@@ -41,25 +41,6 @@ struct ContentView: View {
     }
 }
 
-private struct HomeView: View {
-    let displayName: String?
-    let onSignOut: () -> Void
-
-    var body: some View {
-        NavigationStack {
-            VStack(spacing: 16) {
-                Text("Welcome, \(displayName ?? "there") ❤️")
-                    .font(.title2).fontWeight(.semibold)
-                Button("Sign out", action: onSignOut)
-                    .buttonStyle(.borderedProminent)
-                    .tint(Color("AccentColor"))
-            }
-            .padding()
-            .navigationTitle("Noi2")
-        }
-    }
-}
-
 #Preview {
     ContentView()
 }
