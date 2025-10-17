@@ -8,9 +8,12 @@
 import Foundation
 import FirebaseAuth
 import FirebaseFirestore
+import WidgetKit
 
 @MainActor
 final class HomeViewModel: ObservableObject {
+
+    // MARK: - Couple state
     enum CoupleState: Equatable {
         case noCouple
         case createdWaiting(code: String, membersCount: Int)
@@ -18,6 +21,10 @@ final class HomeViewModel: ObservableObject {
         case matched(code: String)
     }
 
+    // MARK: - Services
+    private let messageService = LoveMessageService()
+
+    // MARK: - Published state
     @Published var profile: UserProfile?
     @Published var couple: Couple?
     @Published var state: CoupleState = .noCouple
@@ -30,8 +37,22 @@ final class HomeViewModel: ObservableObject {
     @Published var pickedAnniversary: Date = Date()
     @Published var isEditingAnniversary = false
 
+    // Messaging / widget
+    @Published var currentUserName: String = ""
+
+    // MARK: - Derived
+    var currentUid: String { Auth.auth().currentUser?.uid ?? "" }
+    var coupleId: String { couple?.id ?? "" }
+
+    // MARK: - Listeners
     private var coupleListener: ListenerRegistration?
 
+    deinit {
+        coupleListener?.remove()
+        messageService.stopListening()
+    }
+
+    // MARK: - Lifecycle
     func load() async {
         guard Auth.auth().currentUser != nil else { return }
         isLoading = true
@@ -49,6 +70,7 @@ final class HomeViewModel: ObservableObject {
         }
     }
 
+    // MARK: - Couple create/join/leave
     func generateAndCreateCouple() async {
         guard let uid = Auth.auth().currentUser?.uid else { return }
         isLoading = true
@@ -88,6 +110,31 @@ final class HomeViewModel: ObservableObject {
         }
     }
 
+    func leaveCouple() async {
+        guard let uid = Auth.auth().currentUser?.uid,
+              let cid = couple?.id else { return }
+        isLoading = true
+        defer { isLoading = false }
+        do {
+            try await FirestoreService.removeMember(coupleId: cid, uid: uid)
+            if let membersCount = couple?.memberUids.count, membersCount <= 1 {
+                try await FirestoreService.deleteCoupleIfEmpty(coupleId: cid)
+            }
+            try await FirestoreService.setUserCouple(uid: uid, coupleId: nil)
+
+            // Reset local state
+            coupleListener?.remove(); coupleListener = nil
+            messageService.stopListening()
+            couple = nil
+            state = .noCouple
+            generatedCode = ""
+            joinCode = ""
+        } catch {
+            self.errorMessage = error.localizedDescription
+        }
+    }
+
+    // MARK: - Anniversary
     func saveAnniversary() async {
         guard let cid = couple?.id else { return }
         isLoading = true
@@ -113,28 +160,7 @@ final class HomeViewModel: ObservableObject {
         isEditingAnniversary = false
     }
 
-    func leaveCouple() async {
-        guard let uid = Auth.auth().currentUser?.uid,
-              let cid = couple?.id else { return }
-        isLoading = true
-        defer { isLoading = false }
-        do {
-            try await FirestoreService.removeMember(coupleId: cid, uid: uid)
-            if let membersCount = couple?.memberUids.count, membersCount <= 1 {
-                try await FirestoreService.deleteCoupleIfEmpty(coupleId: cid)
-            }
-            try await FirestoreService.setUserCouple(uid: uid, coupleId: nil)
-
-            coupleListener?.remove(); coupleListener = nil
-            couple = nil
-            state = .noCouple
-            generatedCode = ""
-            joinCode = ""
-        } catch {
-            self.errorMessage = error.localizedDescription
-        }
-    }
-
+    // MARK: - Couple listener
     private func listenCouple(id: String) {
         coupleListener?.remove()
         coupleListener = FirestoreService.couples.document(id).addSnapshotListener { [weak self] snap, err in
@@ -143,6 +169,12 @@ final class HomeViewModel: ObservableObject {
                 guard let data = snap else { return }
                 self?.couple = try? data.data(as: Couple.self)
                 self?.recomputeState()
+
+                if case .matched = self?.state {
+                    self?.startMessageSync()
+                } else {
+                    self?.stopMessageSync()
+                }
             }
         }
     }
@@ -168,5 +200,32 @@ final class HomeViewModel: ObservableObject {
     private static func generateCode(length: Int = 6) -> String {
         let chars = Array("ABCDEFGHJKLMNPQRSTUVWXYZ23456789")
         return String((0..<length).map { _ in chars.randomElement()! })
+    }
+
+    // MARK: - Widget manual update (util la testare)
+    func updateWidgetWithLatestPartnerMessage(text: String, fromUid: String, fromName: String) {
+        let note = LoveNote(text: text, fromUid: fromUid, fromName: fromName, updatedAt: .now)
+        LoveStore.save(note)
+        WidgetCenter.shared.reloadTimelines(ofKind: "Noi2LoveWidget")
+    }
+
+    // MARK: - Messaging API (folosesc LoveMessageService)
+    func startMessageSync() {
+        messageService.startListening(coupleId: coupleId, currentUid: currentUid)
+    }
+
+    func stopMessageSync() {
+        messageService.stopListening()
+    }
+
+    func sendLoveMessage(_ text: String) {
+        let t = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !t.isEmpty, !coupleId.isEmpty, !currentUid.isEmpty else { return }
+        messageService.send(
+            to: coupleId,
+            text: String(t.prefix(80)),
+            fromUid: currentUid,
+            fromName: currentUserName
+        )
     }
 }

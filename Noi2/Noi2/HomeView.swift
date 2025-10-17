@@ -45,6 +45,10 @@ struct HomeView: View {
                             onSaveAnniv: { Task { await vm.saveAnniversary() } },
                             onRemoveConnection: { Task { await vm.leaveCouple() } }
                         )
+
+                        LoveComposer { message in
+                            vm.sendLoveMessage(message)
+                        }
                     }
 
                     if let err = vm.errorMessage, !err.isEmpty {
@@ -63,6 +67,17 @@ struct HomeView: View {
                 }
             }
             .task { await vm.load() }
+            .onAppear {
+                vm.currentUserName = displayName ?? "Me"
+            }
+            .onChange(of: vm.state) { _, newValue in
+                switch newValue {
+                case .matched:
+                    vm.startMessageSync()
+                default:
+                    vm.stopMessageSync()
+                }
+            }
         }
     }
 
@@ -256,4 +271,28 @@ private struct CoupleCardMatched: View {
         .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
     }
 }
+
+struct LoveComposer: View {
+    @State private var text = ""
+    let onSend: (String) -> Void
+
+    var body: some View {
+        HStack(spacing: 8) {
+            TextField("Send a short message…", text: $text)
+                .textInputAutocapitalization(.sentences)
+                .onChange(of: text) { _, new in
+                    if new.count > 80 { text = String(new.prefix(80)) }
+                }
+            Button("Send") {
+                let t = text.trimmingCharacters(in: .whitespacesAndNewlines)
+                guard !t.isEmpty else { return }
+                onSend(t); text = ""
+            }
+        }
+        .padding(12)
+        .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 14))
+    }
+}
+
+
 
