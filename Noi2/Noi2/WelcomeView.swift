@@ -191,11 +191,9 @@ struct AppleSignInButton: View {
                             change.commitChanges(completion: nil)
                         }
                     }
-
                     DispatchQueue.main.async { auth.isLoading = false }
                 }
             }
         }
     }
 }
-

@@ -5,13 +5,13 @@
 //  Created by Cristi Sandu on 16.10.2025.
 //
 
-
 import FirebaseFirestore
 import WidgetKit
 
 final class LoveMessageService {
     private let db = Firestore.firestore()
     private var listener: ListenerRegistration?
+    private var isListening = false
 
     func send(to coupleId: String, text: String, fromUid: String, fromName: String) {
         guard !coupleId.isEmpty else { return }
@@ -29,8 +29,10 @@ final class LoveMessageService {
         stopListening()
         guard !coupleId.isEmpty else { return }
 
+        isListening = true
         listener = db.collection("couples").document(coupleId)
-            .addSnapshotListener { snap, _ in
+            .addSnapshotListener(includeMetadataChanges: true) { [weak self] snap, _ in
+                guard let self = self else { return }
                 guard
                     let data = snap?.data(),
                     let last = data["lastMessage"] as? [String: Any],
@@ -50,5 +52,6 @@ final class LoveMessageService {
     func stopListening() {
         listener?.remove()
         listener = nil
+        isListening = false
     }
 }

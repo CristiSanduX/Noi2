@@ -8,6 +8,7 @@
 import Foundation
 import FirebaseFirestore
 import FirebaseAuth
+import FirebaseFirestore
 
 enum FirestoreService {
     static let db = Firestore.firestore()
@@ -43,8 +44,9 @@ enum FirestoreService {
 
     static func createCouple(ownerUid: String, code: String) async throws -> String {
         let ref = couples.document() // auto-id
+        let normalizedCode = code.uppercased()
         try await ref.setData([
-            "code": code,
+            "code": normalizedCode,
             "memberUids": [ownerUid],
             "createdAt": FieldValue.serverTimestamp(),
             "updatedAt": FieldValue.serverTimestamp()
@@ -53,17 +55,46 @@ enum FirestoreService {
     }
 
     static func findCoupleBy(code: String) async throws -> Couple? {
-        let qs = try await couples.whereField("code", isEqualTo: code.uppercased()).limit(to: 1).getDocuments()
+        let normalized = code.uppercased()
+        let qs = try await couples
+            .whereField("code", isEqualTo: normalized)
+            .limit(to: 1)
+            .getDocuments()
+
         guard let doc = qs.documents.first else { return nil }
         return try doc.data(as: Couple.self)
     }
 
     static func joinCouple(coupleId: String, uid: String) async throws {
         let ref = couples.document(coupleId)
-        try await ref.updateData([
-            "memberUids": FieldValue.arrayUnion([uid]),
-            "updatedAt": FieldValue.serverTimestamp()
-        ])
+
+        _ = try await db.runTransaction { (transaction, errorPointer) -> Any? in
+            do {
+                let snapshot = try transaction.getDocument(ref)
+                guard var data = snapshot.data() else {
+                    errorPointer?.pointee = NSError(domain: "FirestoreService", code: 404, userInfo: [NSLocalizedDescriptionKey: "Couple not found"])
+                    return nil
+                }
+
+                var members = data["memberUids"] as? [String] ?? []
+                if members.contains(uid) { return nil } // deja membru, e ok
+
+                if members.count >= 2 {
+                    errorPointer?.pointee = NSError(domain: "FirestoreService", code: 409, userInfo: [NSLocalizedDescriptionKey: "Couple is already full"])
+                    return nil
+                }
+
+                members.append(uid)
+                transaction.updateData([
+                    "memberUids": members,
+                    "updatedAt": FieldValue.serverTimestamp()
+                ], forDocument: ref)
+                return nil
+            } catch {
+                errorPointer?.pointee = error as NSError
+                return nil
+            }
+        }
     }
 
     static func setAnniversary(coupleId: String, date: Date) async throws {
@@ -72,7 +103,7 @@ enum FirestoreService {
             "updatedAt": FieldValue.serverTimestamp()
         ])
     }
-    
+
     static func removeMember(coupleId: String, uid: String) async throws {
         try await couples.document(coupleId).updateData([
             "memberUids": FieldValue.arrayRemove([uid]),
@@ -86,5 +117,4 @@ enum FirestoreService {
             try await couples.document(coupleId).delete()
         }
     }
-
 }

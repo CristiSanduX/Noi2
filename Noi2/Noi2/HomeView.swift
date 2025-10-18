@@ -12,6 +12,8 @@ struct HomeView: View {
     let displayName: String?
     let onSignOut: () -> Void
 
+    @Environment(\.scenePhase) private var scenePhase
+
     var body: some View {
         NavigationStack {
             ScrollView {
@@ -69,6 +71,9 @@ struct HomeView: View {
             .task { await vm.load() }
             .onAppear {
                 vm.currentUserName = displayName ?? "Me"
+                if case .matched = vm.state {
+                    vm.startMessageSync()
+                }
             }
             .onChange(of: vm.state) { _, newValue in
                 switch newValue {
@@ -76,6 +81,18 @@ struct HomeView: View {
                     vm.startMessageSync()
                 default:
                     vm.stopMessageSync()
+                }
+            }
+            .onChange(of: scenePhase) { _, phase in
+                switch phase {
+                case .active:
+                    if case .matched = vm.state {
+                        vm.startMessageSync()
+                    }
+                case .inactive, .background:
+                    vm.stopMessageSync()
+                @unknown default:
+                    break
                 }
             }
         }
@@ -293,6 +310,3 @@ struct LoveComposer: View {
         .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 14))
     }
 }
-
-
-
