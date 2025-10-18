@@ -64,13 +64,6 @@
 			);
 			target = 1CE29F332EA128AD00FE9B81 /* Noi2LoveWidgetExtension */;
 		};
-		1CE29F542EA1292200FE9B81 /* Exceptions for "Noi2" folder in "Noi2LoveWidgetExtension" target */ = {
-			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
-			membershipExceptions = (
-				SharedLoveStore.swift,
-			);
-			target = 1CE29F332EA128AD00FE9B81 /* Noi2LoveWidgetExtension */;
-		};
 		1CE29F592EA1330700FE9B81 /* Exceptions for "Noi2LoveWidget" folder in "Noi2" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
@@ -85,7 +78,6 @@
 			isa = PBXFileSystemSynchronizedRootGroup;
 			exceptions = (
 				1CE29F012EA02DBF00FE9B81 /* Exceptions for "Noi2" folder in "Noi2" target */,
-				1CE29F542EA1292200FE9B81 /* Exceptions for "Noi2" folder in "Noi2LoveWidgetExtension" target */,
 			);
 			path = Noi2;
 			sourceTree = "<group>";
