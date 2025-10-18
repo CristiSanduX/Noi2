@@ -6,6 +6,8 @@
 //
 
 import SwiftUI
+import AuthenticationServices
+import FirebaseAuth
 
 struct WelcomeView: View {
     @EnvironmentObject private var auth: AuthViewModel
@@ -62,6 +64,7 @@ struct WelcomeView: View {
                             .tint(Color("AccentColor"))
                             .font(.headline)
                     } else {
+                        // MARK: - Google Button
                         Button {
                             UIImpactFeedbackGenerator(style: .soft).impactOccurred()
                             auth.signInWithGoogle()
@@ -69,13 +72,18 @@ struct WelcomeView: View {
                             HStack(spacing: 10) {
                                 Image("GoogleG")
                                     .resizable()
-                                    .frame(width: 22, height: 22)
-                                Text("Continue with Google")
+                                    .frame(width: 20, height: 20)
+                                Text("Sign in with Google")
                                     .fontWeight(.semibold)
                             }
                             .frame(maxWidth: .infinity)
                         }
                         .buttonStyle(PrimaryCapsuleStyle())
+
+                        // MARK: - Apple Button
+                        AppleSignInButton()
+                            .padding(.top, 8)
+                            .environmentObject(auth)
                     }
 
                     if let error = auth.errorMessage, !error.isEmpty {
@@ -110,3 +118,84 @@ struct WelcomeView: View {
         }
     }
 }
+
+struct AppleSignInButton: View {
+    @EnvironmentObject private var auth: AuthViewModel
+    @State private var currentNonce: String?
+
+    var body: some View {
+        SignInWithAppleButton(.signIn,
+            onRequest: { request in
+                let nonce = randomNonceString()
+                currentNonce = nonce
+                request.requestedScopes = [.fullName, .email]
+                request.nonce = sha256(nonce)
+            },
+            onCompletion: handle
+        )
+        .signInWithAppleButtonStyle(.black)
+        .frame(height: 49)
+        .frame(maxWidth: .infinity)
+        .clipShape(Capsule())
+        .overlay(Capsule().stroke(Color.primary.opacity(0.1), lineWidth: 0.5))
+        .shadow(color: .black.opacity(0.15), radius: 3, y: 2)
+        .padding(.horizontal, 2)
+    }
+
+    private func handle(result: Result<ASAuthorization, Error>) {
+        switch result {
+        case .failure(let error):
+            DispatchQueue.main.async { auth.isLoading = false }
+            print("Apple sign-in failed:", error)
+
+        case .success(let authResult):
+            guard
+                let appleIDCredential = authResult.credential as? ASAuthorizationAppleIDCredential,
+                let nonce = currentNonce,
+                let tokenData = appleIDCredential.identityToken,
+                let idToken = String(data: tokenData, encoding: .utf8)
+            else {
+                DispatchQueue.main.async { auth.isLoading = false }
+                print("Apple sign-in: token/nonce missing")
+                return
+            }
+
+            DispatchQueue.main.async { auth.isLoading = true }
+
+            let credential = OAuthProvider.appleCredential(
+                withIDToken: idToken,
+                rawNonce: nonce,
+                fullName: appleIDCredential.fullName
+            )
+
+            if let user = Auth.auth().currentUser {
+                user.link(with: credential) { _, error in
+                    if let error = error { print("Link Apple failed:", error) }
+                    DispatchQueue.main.async { auth.isLoading = false }
+                }
+            } else {
+                Auth.auth().signIn(with: credential) { result, error in
+                    if let error = error {
+                        print("Firebase Apple sign-in error:", error)
+                        DispatchQueue.main.async { auth.isLoading = false }
+                        return
+                    }
+
+                    if let fullName = appleIDCredential.fullName,
+                       let user = result?.user {
+                        let name = [fullName.givenName, fullName.familyName]
+                            .compactMap { $0 }.joined(separator: " ")
+                        if !name.isEmpty {
+                            let change = user.createProfileChangeRequest()
+                            change.displayName = name
+                            change.commitChanges(completion: nil)
+                        }
+                    }
+
+                    DispatchQueue.main.async { auth.isLoading = false }
+                }
+            }
+        }
+    }
+}
+

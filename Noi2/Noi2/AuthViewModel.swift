@@ -12,18 +12,36 @@ import UIKit
 
 @MainActor
 final class AuthViewModel: ObservableObject {
-    // UI state
-    @Published var isSignedIn = false
-    @Published var displayName: String?
-    @Published var isLoading = false
-    @Published var errorMessage: String?
+    // MARK: - UI state
+    @Published var isSignedIn: Bool = false
+    @Published var displayName: String? = nil
+    @Published var isLoading: Bool = false
+    @Published var errorMessage: String? = nil
+
+    // MARK: - Auth state listener
+    private var authHandle: AuthStateDidChangeListenerHandle?
 
     init() {
+        // stare inițială
         let user = Auth.auth().currentUser
         self.isSignedIn = (user != nil)
         self.displayName = user?.displayName
+
+        authHandle = Auth.auth().addStateDidChangeListener { [weak self] _, user in
+            guard let self else { return }
+            self.isSignedIn = (user != nil)
+            self.displayName = user?.displayName
+            self.isLoading = false
+        }
     }
 
+    deinit {
+        if let authHandle {
+            Auth.auth().removeStateDidChangeListener(authHandle)
+        }
+    }
+
+    // MARK: - Google
     func signInWithGoogle() {
         guard !isLoading else { return }
         errorMessage = nil
@@ -70,28 +88,27 @@ final class AuthViewModel: ObservableObject {
                     return
                 }
 
-                self.isSignedIn = true
                 UIImpactFeedbackGenerator(style: .soft).impactOccurred()
                 self.displayName = authResult?.user.displayName
-                print("Signed in as:", self.displayName ?? "(no name)")
             }
         }
     }
 
+    // MARK: - Sign out
     func signOut() {
         do {
             GIDSignIn.sharedInstance.signOut()
             try Auth.auth().signOut()
-            isSignedIn = false
-            displayName = nil
-            errorMessage = nil
+            // listener-ul va seta automat isSignedIn = false
+            self.displayName = nil
+            self.errorMessage = nil
         } catch {
-            errorMessage = error.localizedDescription
+            self.errorMessage = error.localizedDescription
         }
     }
 }
 
-// keyWindow helper
+// MARK: - UIWindow helper
 private extension UIWindowScene {
     var keyWindow: UIWindow? { windows.first { $0.isKeyWindow } }
 }

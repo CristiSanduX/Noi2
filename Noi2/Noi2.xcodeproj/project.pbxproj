@@ -423,7 +423,7 @@
 				CODE_SIGN_ENTITLEMENTS = Noi2/Noi2.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = 5RR3Q663V8;
+				DEVELOPMENT_TEAM = KFMXKU4W6B;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = Noi2/Info.plist;
@@ -437,7 +437,7 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = ro.csx.Noi2;
+				PRODUCT_BUNDLE_IDENTIFIER = ro.csx.Noi2x;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
@@ -453,7 +453,7 @@
 				CODE_SIGN_ENTITLEMENTS = Noi2/Noi2.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = 5RR3Q663V8;
+				DEVELOPMENT_TEAM = KFMXKU4W6B;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = Noi2/Info.plist;
@@ -467,7 +467,7 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = ro.csx.Noi2;
+				PRODUCT_BUNDLE_IDENTIFIER = ro.csx.Noi2x;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
@@ -483,7 +483,7 @@
 				CODE_SIGN_ENTITLEMENTS = Noi2LoveWidgetExtension.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = 5RR3Q663V8;
+				DEVELOPMENT_TEAM = KFMXKU4W6B;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = Noi2LoveWidget/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = Noi2LoveWidget;
@@ -494,7 +494,7 @@
 					"@executable_path/../../Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = ro.csx.Noi2.Noi2LoveWidget;
+				PRODUCT_BUNDLE_IDENTIFIER = ro.csx.Noi2x.Noi2xLoveWidget;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -511,7 +511,7 @@
 				CODE_SIGN_ENTITLEMENTS = Noi2LoveWidgetExtension.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = 5RR3Q663V8;
+				DEVELOPMENT_TEAM = KFMXKU4W6B;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = Noi2LoveWidget/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = Noi2LoveWidget;
@@ -522,7 +522,7 @@
 					"@executable_path/../../Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = ro.csx.Noi2.Noi2LoveWidget;
+				PRODUCT_BUNDLE_IDENTIFIER = ro.csx.Noi2x.Noi2xLoveWidget;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
 				SWIFT_EMIT_LOC_STRINGS = YES;

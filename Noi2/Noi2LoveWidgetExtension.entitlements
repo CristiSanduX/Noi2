@@ -4,7 +4,7 @@
 <dict>
 	<key>com.apple.security.application-groups</key>
 	<array>
-		<string>group.ro.csx.Noi2.shared</string>
+		<string>group.ro.csx.Noi2x.shared</string>
 	</array>
 </dict>
 </plist>

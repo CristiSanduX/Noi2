@@ -15,7 +15,7 @@ struct LoveNote: Codable, Equatable {
 }
 
 enum LoveStore {
-    static let appGroupId = "group.ro.csx.Noi2.shared"
+    static let appGroupId = "group.ro.csx.Noi2x.shared"
     private static let fileName = "love_note.json"
 
     private static var url: URL {
