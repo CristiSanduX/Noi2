@@ -23,6 +23,7 @@ final class HomeViewModel: ObservableObject {
 
     // MARK: - Services
     private let messageService = LoveMessageService()
+    private let ck = CloudKitPushService.shared // CloudKit mirror service (push trigger)
 
     // MARK: - Published state
     @Published var profile: UserProfile?
@@ -46,10 +47,12 @@ final class HomeViewModel: ObservableObject {
 
     // MARK: - Listeners
     private var coupleListener: ListenerRegistration?
+    private var ckObserver: NSObjectProtocol?
 
     deinit {
         coupleListener?.remove()
         messageService.stopListening()
+        if let ckObserver { NotificationCenter.default.removeObserver(ckObserver) }
     }
 
     // MARK: - Lifecycle
@@ -62,6 +65,8 @@ final class HomeViewModel: ObservableObject {
             self.profile = p
             if let coupleId = p.coupleId {
                 listenCouple(id: coupleId)
+                // Ensure CloudKit record + subscription and start listening to push
+                await startCloudKitSync(coupleId: coupleId)
             } else {
                 self.state = .noCouple
             }
@@ -70,7 +75,7 @@ final class HomeViewModel: ObservableObject {
         }
     }
 
-    // MARK: - Couple create/join/leave
+    // MARK: - Couple create / join / leave
     func generateAndCreateCouple() async {
         guard let uid = Auth.auth().currentUser?.uid else { return }
         isLoading = true
@@ -81,6 +86,10 @@ final class HomeViewModel: ObservableObject {
             try await FirestoreService.setUserCouple(uid: uid, coupleId: coupleId)
             self.generatedCode = code
             listenCouple(id: coupleId)
+
+            // CloudKit: ensure record + subscription, then signal a "status" bump
+            await startCloudKitSync(coupleId: coupleId)
+            await ck.bump(coupleId: coupleId, eventType: "status")
         } catch {
             self.errorMessage = error.localizedDescription
         }
@@ -105,6 +114,10 @@ final class HomeViewModel: ObservableObject {
             try await FirestoreService.joinCouple(coupleId: coupleId, uid: uid)
             try await FirestoreService.setUserCouple(uid: uid, coupleId: coupleId)
             listenCouple(id: coupleId)
+
+            // CloudKit: ensure subscription and signal change
+            await startCloudKitSync(coupleId: coupleId)
+            await ck.bump(coupleId: coupleId, eventType: "status")
         } catch {
             self.errorMessage = error.localizedDescription
         }
@@ -122,6 +135,9 @@ final class HomeViewModel: ObservableObject {
             }
             try await FirestoreService.setUserCouple(uid: uid, coupleId: nil)
 
+            // CloudKit: bump "status" before clearing local state
+            Task { await ck.bump(coupleId: cid, eventType: "status") }
+
             // Reset local state
             coupleListener?.remove(); coupleListener = nil
             messageService.stopListening()
@@ -129,6 +145,9 @@ final class HomeViewModel: ObservableObject {
             state = .noCouple
             generatedCode = ""
             joinCode = ""
+
+            // Stop CK observer
+            if let ckObserver { NotificationCenter.default.removeObserver(ckObserver); self.ckObserver = nil }
         } catch {
             self.errorMessage = error.localizedDescription
         }
@@ -142,17 +161,16 @@ final class HomeViewModel: ObservableObject {
         do {
             try await FirestoreService.setAnniversary(coupleId: cid, date: pickedAnniversary)
             isEditingAnniversary = false
+
+            // CloudKit: bump "anniversary"
+            await ck.bump(coupleId: cid, eventType: "anniversary")
         } catch {
             self.errorMessage = error.localizedDescription
         }
     }
 
     func startEditingAnniversary() {
-        if let current = couple?.anniversary {
-            pickedAnniversary = current
-        } else {
-            pickedAnniversary = Date()
-        }
+        pickedAnniversary = couple?.anniversary ?? Date()
         isEditingAnniversary = true
     }
 
@@ -202,14 +220,14 @@ final class HomeViewModel: ObservableObject {
         return String((0..<length).map { _ in chars.randomElement()! })
     }
 
-    // MARK: - Widget manual update (util la testare)
+    // MARK: - Widget manual update (handy for testing)
     func updateWidgetWithLatestPartnerMessage(text: String, fromUid: String, fromName: String) {
         let note = LoveNote(text: text, fromUid: fromUid, fromName: fromName, updatedAt: .now)
         LoveStore.save(note)
         WidgetCenter.shared.reloadTimelines(ofKind: "Noi2LoveWidget")
     }
 
-    // MARK: - Messaging API (folosesc LoveMessageService)
+    // MARK: - Messaging API (via LoveMessageService)
     func startMessageSync() {
         messageService.startListening(coupleId: coupleId, currentUid: currentUid)
     }
@@ -227,5 +245,45 @@ final class HomeViewModel: ObservableObject {
             fromUid: currentUid,
             fromName: currentUserName
         )
+
+        // CloudKit: bump "message" (fire-and-forget)
+        Task { await ck.bump(coupleId: coupleId, eventType: "message") }
+    }
+
+    // MARK: - CloudKit sync bootstrap + refetch on push
+    func startCloudKitSync(coupleId: String) async {
+        // 1) Ensure the signal record exists (also bootstraps schema in Development)
+        _ = try? await ck.ensureSignalRecord(for: coupleId)
+
+        // 2) Force (re)create the subscription on THIS device with alert payload
+        //    Use this once per device or whenever you want to guarantee banner config.
+        await ck.recreateSubscription(for: coupleId)
+
+        // 3) Listen for CloudKit push (alert or silent) and refresh Firestore as a safety net
+        if ckObserver == nil {
+            ckObserver = NotificationCenter.default.addObserver(
+                forName: .init("CKSilentSignal"), object: nil, queue: .main
+            ) { [weak self] _ in
+                guard let self else { return }
+                Task { await self.refetchCoupleSnapshot() }
+            }
+        }
+    }
+
+    /// Forces a quick snapshot refresh from Firestore (useful if any push was missed).
+    private func refetchCoupleSnapshot() async {
+        guard let cid = couple?.id ?? profile?.coupleId else { return }
+        do {
+            let snap = try await FirestoreService.couples.document(cid).getDocument()
+            if let c: Couple = try? snap.data(as: Couple.self) {
+                self.couple = c
+                self.recomputeState()
+                if case .matched = self.state { self.startMessageSync() }
+            }
+        } catch {
+            #if DEBUG
+            print("[CK Sync] refetchCoupleSnapshot error:", error.localizedDescription)
+            #endif
+        }
     }
 }

@@ -15,6 +15,7 @@
 		1CE29F372EA128AD00FE9B81 /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1CE29F362EA128AD00FE9B81 /* WidgetKit.framework */; };
 		1CE29F392EA128AD00FE9B81 /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1CE29F382EA128AD00FE9B81 /* SwiftUI.framework */; };
 		1CE29F4A2EA128AF00FE9B81 /* Noi2LoveWidgetExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 1CE29F342EA128AD00FE9B81 /* Noi2LoveWidgetExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		1CE29FB32EA43C3B00FE9B81 /* FirebaseMessaging in Frameworks */ = {isa = PBXBuildFile; productRef = 1CE29FB22EA43C3B00FE9B81 /* FirebaseMessaging */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -50,6 +51,13 @@
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		1CBAB2D62EA4523200F807A4 /* Exceptions for "Noi2" folder in "Noi2LoveWidgetExtension" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Services/SharedLoveStore.swift,
+			);
+			target = 1CE29F332EA128AD00FE9B81 /* Noi2LoveWidgetExtension */;
+		};
 		1CE29F012EA02DBF00FE9B81 /* Exceptions for "Noi2" folder in "Noi2" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
@@ -78,6 +86,7 @@
 			isa = PBXFileSystemSynchronizedRootGroup;
 			exceptions = (
 				1CE29F012EA02DBF00FE9B81 /* Exceptions for "Noi2" folder in "Noi2" target */,
+				1CBAB2D62EA4523200F807A4 /* Exceptions for "Noi2" folder in "Noi2LoveWidgetExtension" target */,
 			);
 			path = Noi2;
 			sourceTree = "<group>";
@@ -98,6 +107,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				1CE29FB32EA43C3B00FE9B81 /* FirebaseMessaging in Frameworks */,
 				1CE29EFF2EA02D8700FE9B81 /* GoogleSignInSwift in Frameworks */,
 				1CE29EF62EA0271900FE9B81 /* FirebaseCore in Frameworks */,
 				1CE29EFD2EA02D8700FE9B81 /* GoogleSignIn in Frameworks */,
@@ -174,6 +184,7 @@
 				1CE29EF72EA0271900FE9B81 /* FirebaseFirestore */,
 				1CE29EFC2EA02D8700FE9B81 /* GoogleSignIn */,
 				1CE29EFE2EA02D8700FE9B81 /* GoogleSignInSwift */,
+				1CE29FB22EA43C3B00FE9B81 /* FirebaseMessaging */,
 			);
 			productName = Noi2;
 			productReference = 1CE29EDC2E9F9E8600FE9B81 /* Noi2.app */;
@@ -413,6 +424,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = Noi2/Noi2.entitlements;
+				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = KFMXKU4W6B;
@@ -431,6 +443,7 @@
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = ro.csx.Noi2x;
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				PROVISIONING_PROFILE_SPECIFIER = "";
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
@@ -443,6 +456,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = Noi2/Noi2.entitlements;
+				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = KFMXKU4W6B;
@@ -461,6 +475,7 @@
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = ro.csx.Noi2x;
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				PROVISIONING_PROFILE_SPECIFIER = "";
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
@@ -599,6 +614,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 1CE29EFB2EA02D8700FE9B81 /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */;
 			productName = GoogleSignInSwift;
+		};
+		1CE29FB22EA43C3B00FE9B81 /* FirebaseMessaging */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 1CE29EF22EA0271900FE9B81 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseMessaging;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};
