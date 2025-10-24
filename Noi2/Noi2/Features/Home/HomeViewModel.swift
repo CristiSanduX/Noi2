@@ -31,6 +31,8 @@ final class HomeViewModel: ObservableObject {
     @Published var state: CoupleState = .noCouple
     @Published var isLoading = false
     @Published var errorMessage: String?
+    @Published private(set) var isUploadingWidgetPhoto = false
+
 
     // Last message (persisted per user+couple)
     @Published var lastSent: LastSent?
@@ -114,11 +116,32 @@ final class HomeViewModel: ObservableObject {
                     self?.couple = c
                     self?.recomputeState()
 
-                    // re-evaluate persisted lastSent key now that coupleId may have changed
+                    if let anniv = c.anniversary {
+                        SharedWidgetStore.saveAnniversary(anniv)
+                    }
+                    
+                    if let urlStr = c.widgetPhotoURL, let url = URL(string: urlStr) {
+                        Task.detached { [weak self] in
+                            guard let self else { return }
+                            do {
+                                let data = try await StorageService.downloadData(from: url)
+                                if let img = UIImage(data: data) {
+                                    SharedWidgetStore.saveWidgetPhoto(img)
+                                }
+                            } catch {
+                                #if DEBUG
+                                print("[WidgetPhoto] download failed:", error.localizedDescription)
+                                #endif
+                            }
+                        }
+                    }
+
+
                     self?.loadLastSent()
                 } else {
                     print("[ERR] Failed to decode Couple model")
                 }
+
 
                 if case .matched = self?.state {
                     print("[DBG] -> state = matched → startMessageSync()")
@@ -235,6 +258,30 @@ final class HomeViewModel: ObservableObject {
             self.errorMessage = error.localizedDescription
         }
     }
+    
+
+    func setWidgetPhoto(_ image: UIImage) async {
+        guard !coupleId.isEmpty, !isUploadingWidgetPhoto else { return }
+
+
+        isUploadingWidgetPhoto = true
+        isLoading = true
+        defer {
+            isUploadingWidgetPhoto = false
+            isLoading = false
+        }
+        do {
+            let url = try await StorageService.uploadWidgetPhoto(coupleId: coupleId, image: image)
+            try await FirestoreService.couples.document(coupleId).updateData([
+                "widgetPhotoURL": url.absoluteString
+            ])
+            SharedWidgetStore.saveWidgetPhoto(image)
+        } catch {
+            self.errorMessage = error.localizedDescription
+        }
+    }
+
+
 
     // MARK: - Anniversary
     func saveAnniversary() async {
@@ -245,12 +292,14 @@ final class HomeViewModel: ObservableObject {
             try await FirestoreService.setAnniversary(coupleId: cid, date: pickedAnniversary)
             isEditingAnniversary = false
 
-            // CloudKit: bump "anniversary"
+            SharedWidgetStore.saveAnniversary(pickedAnniversary)
+
             await ck.bump(coupleId: cid, eventType: "anniversary")
         } catch {
             self.errorMessage = error.localizedDescription
         }
     }
+
 
     func startEditingAnniversary() {
         pickedAnniversary = couple?.anniversary ?? Date()

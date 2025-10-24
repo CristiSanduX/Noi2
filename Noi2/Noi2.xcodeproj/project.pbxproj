@@ -7,6 +7,10 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		1C36457A2EAB5BE600A62391 /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1CE29F362EA128AD00FE9B81 /* WidgetKit.framework */; };
+		1C36457B2EAB5BE600A62391 /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1CE29F382EA128AD00FE9B81 /* SwiftUI.framework */; };
+		1C36458A2EAB5BE700A62391 /* Noi2DaysWidgetExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 1C3645792EAB5BE600A62391 /* Noi2DaysWidgetExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		1C3645932EAB63ED00A62391 /* FirebaseStorage in Frameworks */ = {isa = PBXBuildFile; productRef = 1C3645922EAB63ED00A62391 /* FirebaseStorage */; };
 		1CE29EF42EA0271900FE9B81 /* FirebaseAuth in Frameworks */ = {isa = PBXBuildFile; productRef = 1CE29EF32EA0271900FE9B81 /* FirebaseAuth */; };
 		1CE29EF62EA0271900FE9B81 /* FirebaseCore in Frameworks */ = {isa = PBXBuildFile; productRef = 1CE29EF52EA0271900FE9B81 /* FirebaseCore */; };
 		1CE29EF82EA0271900FE9B81 /* FirebaseFirestore in Frameworks */ = {isa = PBXBuildFile; productRef = 1CE29EF72EA0271900FE9B81 /* FirebaseFirestore */; };
@@ -19,6 +23,13 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
+		1C3645882EAB5BE700A62391 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 1CE29ED42E9F9E8600FE9B81 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 1C3645782EAB5BE600A62391;
+			remoteInfo = Noi2DaysWidgetExtension;
+		};
 		1CE29F482EA128AF00FE9B81 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 1CE29ED42E9F9E8600FE9B81 /* Project object */;
@@ -36,6 +47,7 @@
 			dstSubfolderSpec = 13;
 			files = (
 				1CE29F4A2EA128AF00FE9B81 /* Noi2LoveWidgetExtension.appex in Embed Foundation Extensions */,
+				1C36458A2EAB5BE700A62391 /* Noi2DaysWidgetExtension.appex in Embed Foundation Extensions */,
 			);
 			name = "Embed Foundation Extensions";
 			runOnlyForDeploymentPostprocessing = 0;
@@ -43,6 +55,8 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		1C3645792EAB5BE600A62391 /* Noi2DaysWidgetExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = Noi2DaysWidgetExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		1C36458F2EAB5BF700A62391 /* Noi2DaysWidgetExtension.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Noi2DaysWidgetExtension.entitlements; sourceTree = "<group>"; };
 		1CE29EDC2E9F9E8600FE9B81 /* Noi2.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Noi2.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		1CE29F342EA128AD00FE9B81 /* Noi2LoveWidgetExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = Noi2LoveWidgetExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		1CE29F362EA128AD00FE9B81 /* WidgetKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WidgetKit.framework; path = System/Library/Frameworks/WidgetKit.framework; sourceTree = SDKROOT; };
@@ -51,6 +65,13 @@
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		1C36458E2EAB5BE700A62391 /* Exceptions for "Noi2DaysWidget" folder in "Noi2DaysWidgetExtension" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = 1C3645782EAB5BE600A62391 /* Noi2DaysWidgetExtension */;
+		};
 		1CBAB2D62EA4523200F807A4 /* Exceptions for "Noi2" folder in "Noi2LoveWidgetExtension" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
@@ -82,6 +103,14 @@
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
+		1C36457C2EAB5BE600A62391 /* Noi2DaysWidget */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				1C36458E2EAB5BE700A62391 /* Exceptions for "Noi2DaysWidget" folder in "Noi2DaysWidgetExtension" target */,
+			);
+			path = Noi2DaysWidget;
+			sourceTree = "<group>";
+		};
 		1CE29EDE2E9F9E8600FE9B81 /* Noi2 */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			exceptions = (
@@ -103,6 +132,15 @@
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
+		1C3645762EAB5BE600A62391 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				1C36457B2EAB5BE600A62391 /* SwiftUI.framework in Frameworks */,
+				1C36457A2EAB5BE600A62391 /* WidgetKit.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		1CE29ED92E9F9E8600FE9B81 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -111,6 +149,7 @@
 				1CE29EFF2EA02D8700FE9B81 /* GoogleSignInSwift in Frameworks */,
 				1CE29EF62EA0271900FE9B81 /* FirebaseCore in Frameworks */,
 				1CE29EFD2EA02D8700FE9B81 /* GoogleSignIn in Frameworks */,
+				1C3645932EAB63ED00A62391 /* FirebaseStorage in Frameworks */,
 				1CE29EF42EA0271900FE9B81 /* FirebaseAuth in Frameworks */,
 				1CE29EF82EA0271900FE9B81 /* FirebaseFirestore in Frameworks */,
 			);
@@ -131,9 +170,11 @@
 		1CE29ED32E9F9E8600FE9B81 = {
 			isa = PBXGroup;
 			children = (
+				1C36458F2EAB5BF700A62391 /* Noi2DaysWidgetExtension.entitlements */,
 				1CE29F502EA128BC00FE9B81 /* Noi2LoveWidgetExtension.entitlements */,
 				1CE29EDE2E9F9E8600FE9B81 /* Noi2 */,
 				1CE29F3A2EA128AD00FE9B81 /* Noi2LoveWidget */,
+				1C36457C2EAB5BE600A62391 /* Noi2DaysWidget */,
 				1CE29F352EA128AD00FE9B81 /* Frameworks */,
 				1CE29EDD2E9F9E8600FE9B81 /* Products */,
 			);
@@ -144,6 +185,7 @@
 			children = (
 				1CE29EDC2E9F9E8600FE9B81 /* Noi2.app */,
 				1CE29F342EA128AD00FE9B81 /* Noi2LoveWidgetExtension.appex */,
+				1C3645792EAB5BE600A62391 /* Noi2DaysWidgetExtension.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -160,6 +202,28 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
+		1C3645782EAB5BE600A62391 /* Noi2DaysWidgetExtension */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 1C36458B2EAB5BE700A62391 /* Build configuration list for PBXNativeTarget "Noi2DaysWidgetExtension" */;
+			buildPhases = (
+				1C3645752EAB5BE600A62391 /* Sources */,
+				1C3645762EAB5BE600A62391 /* Frameworks */,
+				1C3645772EAB5BE600A62391 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				1C36457C2EAB5BE600A62391 /* Noi2DaysWidget */,
+			);
+			name = Noi2DaysWidgetExtension;
+			packageProductDependencies = (
+			);
+			productName = Noi2DaysWidgetExtension;
+			productReference = 1C3645792EAB5BE600A62391 /* Noi2DaysWidgetExtension.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
 		1CE29EDB2E9F9E8600FE9B81 /* Noi2 */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = 1CE29EE72E9F9E8800FE9B81 /* Build configuration list for PBXNativeTarget "Noi2" */;
@@ -173,6 +237,7 @@
 			);
 			dependencies = (
 				1CE29F492EA128AF00FE9B81 /* PBXTargetDependency */,
+				1C3645892EAB5BE700A62391 /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
 				1CE29EDE2E9F9E8600FE9B81 /* Noi2 */,
@@ -185,6 +250,7 @@
 				1CE29EFC2EA02D8700FE9B81 /* GoogleSignIn */,
 				1CE29EFE2EA02D8700FE9B81 /* GoogleSignInSwift */,
 				1CE29FB22EA43C3B00FE9B81 /* FirebaseMessaging */,
+				1C3645922EAB63ED00A62391 /* FirebaseStorage */,
 			);
 			productName = Noi2;
 			productReference = 1CE29EDC2E9F9E8600FE9B81 /* Noi2.app */;
@@ -222,6 +288,9 @@
 				LastSwiftUpdateCheck = 1640;
 				LastUpgradeCheck = 1640;
 				TargetAttributes = {
+					1C3645782EAB5BE600A62391 = {
+						CreatedOnToolsVersion = 16.4;
+					};
 					1CE29EDB2E9F9E8600FE9B81 = {
 						CreatedOnToolsVersion = 16.4;
 					};
@@ -250,11 +319,19 @@
 			targets = (
 				1CE29EDB2E9F9E8600FE9B81 /* Noi2 */,
 				1CE29F332EA128AD00FE9B81 /* Noi2LoveWidgetExtension */,
+				1C3645782EAB5BE600A62391 /* Noi2DaysWidgetExtension */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
+		1C3645772EAB5BE600A62391 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		1CE29EDA2E9F9E8600FE9B81 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -272,6 +349,13 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
+		1C3645752EAB5BE600A62391 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		1CE29ED82E9F9E8600FE9B81 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -289,6 +373,11 @@
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
+		1C3645892EAB5BE700A62391 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 1C3645782EAB5BE600A62391 /* Noi2DaysWidgetExtension */;
+			targetProxy = 1C3645882EAB5BE700A62391 /* PBXContainerItemProxy */;
+		};
 		1CE29F492EA128AF00FE9B81 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = 1CE29F332EA128AD00FE9B81 /* Noi2LoveWidgetExtension */;
@@ -297,6 +386,66 @@
 /* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
+		1C36458C2EAB5BE700A62391 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				ASSETCATALOG_COMPILER_WIDGET_BACKGROUND_COLOR_NAME = WidgetBackground;
+				CODE_SIGN_ENTITLEMENTS = Noi2DaysWidgetExtension.entitlements;
+				CODE_SIGN_IDENTITY = "Apple Development";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = KFMXKU4W6B;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = Noi2DaysWidget/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = Noi2DaysWidget;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "We use your photo to display it on the home screen widget.";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = ro.csx.Noi2x.Noi2DaysWidget;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		1C36458D2EAB5BE700A62391 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				ASSETCATALOG_COMPILER_WIDGET_BACKGROUND_COLOR_NAME = WidgetBackground;
+				CODE_SIGN_ENTITLEMENTS = Noi2DaysWidgetExtension.entitlements;
+				CODE_SIGN_IDENTITY = "Apple Development";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = KFMXKU4W6B;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = Noi2DaysWidget/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = Noi2DaysWidget;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "We use your photo to display it on the home screen widget.";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = ro.csx.Noi2x.Noi2DaysWidget;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
 		1CE29EE52E9F9E8800FE9B81 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -543,6 +692,15 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
+		1C36458B2EAB5BE700A62391 /* Build configuration list for PBXNativeTarget "Noi2DaysWidgetExtension" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				1C36458C2EAB5BE700A62391 /* Debug */,
+				1C36458D2EAB5BE700A62391 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
 		1CE29ED72E9F9E8600FE9B81 /* Build configuration list for PBXProject "Noi2" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
@@ -592,6 +750,11 @@
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
+		1C3645922EAB63ED00A62391 /* FirebaseStorage */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 1CE29EF22EA0271900FE9B81 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseStorage;
+		};
 		1CE29EF32EA0271900FE9B81 /* FirebaseAuth */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = 1CE29EF22EA0271900FE9B81 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;

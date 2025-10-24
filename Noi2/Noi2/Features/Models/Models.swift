@@ -23,6 +23,7 @@ struct Couple: Codable, Identifiable {
     var code: String
     var memberUids: [String]
     var anniversary: Date?
+    var widgetPhotoURL: String?
     @ServerTimestamp var createdAt: Date?
     @ServerTimestamp var updatedAt: Date?
 }

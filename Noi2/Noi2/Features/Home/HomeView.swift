@@ -7,6 +7,8 @@
 
 import SwiftUI
 import UIKit
+import PhotosUI
+
 
 struct HomeView: View {
     @StateObject private var vm = HomeViewModel()
@@ -15,6 +17,10 @@ struct HomeView: View {
 
     @Environment(\.scenePhase) private var scenePhase
     @State private var selectedTab: Int = 0
+    
+  
+
+
 
     var body: some View {
         TabView(selection: $selectedTab) {
@@ -43,17 +49,18 @@ struct HomeView: View {
                     .padding(.horizontal, 20)
                     .padding(.bottom, 52)
                 }
-                .navigationTitle("Noi2")
-                .toolbar {
-                    ToolbarItem(placement: .topBarTrailing) {
-                        Button {
-                            UIImpactFeedbackGenerator(style: .soft).impactOccurred()
-                            onSignOut()
-                        } label: {
-                            Label("Sign out", systemImage: "rectangle.portrait.and.arrow.right")
-                        }
-                    }
-                }
+                .navigationBarItems(trailing:
+                    Button(action: {
+                        UIImpactFeedbackGenerator(style: .soft).impactOccurred()
+                        onSignOut()
+                    }, label: {
+                        Label("Sign out", systemImage: "rectangle.portrait.and.arrow.right")
+                    })
+                )
+
+
+
+
                 .background(staticBackground)
                 .task { await vm.load() }
                 .onAppear {
@@ -91,14 +98,32 @@ struct HomeView: View {
             // TAB 2: ANNIVERSARY
             NavigationStack {
                 ScrollView(.vertical, showsIndicators: false) {
-                    AnniversaryTab(
-                        couple: vm.couple,
-                        isEditing: $vm.isEditingAnniversary,
-                        picked: $vm.pickedAnniversary,
-                        onEdit: { vm.startEditingAnniversary() },
-                        onCancelEdit: { vm.cancelEditingAnniversary() },
-                        onSaveAnniv: { Task { await vm.saveAnniversary() } }
-                    )
+                    VStack(spacing: 16) {
+                        AnniversaryTab(
+                            couple: vm.couple,
+                            isEditing: $vm.isEditingAnniversary,
+                            picked: $vm.pickedAnniversary,
+                            onEdit: { vm.startEditingAnniversary() },
+                            onCancelEdit: { vm.cancelEditingAnniversary() },
+                            onSaveAnniv: { Task { await vm.saveAnniversary() } }
+                        )
+
+                        SectionHeader("Widget customization", systemImage: "photo.on.rectangle.angled")
+
+                        WidgetPhotoPickerRow { image in
+                            Task { await vm.setWidgetPhoto(image) }
+                        }
+
+                        if let img = SharedWidgetStore.loadWidgetPhoto() {
+                            Image(uiImage: img)
+                                .resizable()
+                                .scaledToFill()
+                                .frame(width: 72, height: 72)
+                                .clipShape(RoundedRectangle(cornerRadius: 12))
+                                .overlay(RoundedRectangle(cornerRadius: 12).stroke(.white.opacity(0.08)))
+                                .accessibilityLabel("Current widget photo")
+                        }
+                    }
                     .padding(.horizontal, 20)
                     .padding(.bottom, 52)
                 }

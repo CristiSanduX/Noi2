@@ -221,7 +221,7 @@ struct AnniversaryHeroCard: View {
 
     private func progressToNextMilestone(fromDays days: Int) -> Double {
         let milestones = [100, 200, 300, 365, 500, 700, 1000, 1500, 2000]
-        let next = milestones.first(where: { $0 > days }) ?? (((days/500)+1) * 500)
+        let next = milestones.first(where: { $0 > days }) ?? (((days/500)+2) * 500)
         let prev = milestones.reversed().first(where: { $0 <= days }) ?? 0
         let span = max(1, next - prev)
         let p = Double(days - prev) / Double(span)

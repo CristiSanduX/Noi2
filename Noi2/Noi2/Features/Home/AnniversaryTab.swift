@@ -8,6 +8,8 @@
 
 import SwiftUI
 import WidgetKit
+import PhotosUI
+
 
 struct AnniversaryTab: View {
     let couple: Couple?
@@ -86,3 +88,51 @@ struct AnniversaryTab: View {
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
+
+struct WidgetPhotoPickerRow: View {
+    @State private var selection: PhotosPickerItem?
+    @State private var isUploading = false
+    let onImagePicked: (UIImage) -> Void
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Image(systemName: "photo.on.rectangle.angled")
+                .font(.title3)
+                .foregroundStyle(UITheme.accent)
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Widget photo").font(.headline)
+                Text("Choose a photo to show on your Home widget.")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            }
+            Spacer()
+            PhotosPicker(selection: $selection, matching: .images) {
+                if isUploading {
+                    ProgressView().controlSize(.small)
+                } else {
+                    Text("Choose")
+                        .font(.callout.weight(.semibold))
+                        .padding(.horizontal, 12).padding(.vertical, 6)
+                        .background(UITheme.glassBG(), in: Capsule())
+                }
+            }
+            .disabled(isUploading)
+        }
+        .padding(12)
+        .background(UITheme.glassBG(), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(.white.opacity(0.08)))
+        .onChange(of: selection) { _, newItem in
+            guard let item = newItem, !isUploading else { return }
+            isUploading = true
+            Task {
+                defer { isUploading = false }
+                if let data = try? await item.loadTransferable(type: Data.self),
+                   let img = UIImage(data: data) {
+                    onImagePicked(img)           
+                }
+            }
+        }
+    }
+}
+
