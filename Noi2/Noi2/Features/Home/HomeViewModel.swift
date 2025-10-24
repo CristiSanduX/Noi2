@@ -32,6 +32,9 @@ final class HomeViewModel: ObservableObject {
     @Published var isLoading = false
     @Published var errorMessage: String?
 
+    // Last message (persisted per user+couple)
+    @Published var lastSent: LastSent?
+
     // UI bindings
     @Published var generatedCode: String = ""
     @Published var joinCode: String = ""
@@ -57,21 +60,74 @@ final class HomeViewModel: ObservableObject {
 
     // MARK: - Lifecycle
     func load() async {
-        guard Auth.auth().currentUser != nil else { return }
+        guard let user = Auth.auth().currentUser else {
+            print("[DBG] No Firebase user, skipping load()")
+            return
+        }
+
+        print("[DBG] load() started for uid:", user.uid)
         isLoading = true
         defer { isLoading = false }
+
         do {
             let p = try await FirestoreService.bootstrapCurrentUser()
             self.profile = p
+            print("[DBG] bootstrapCurrentUser OK, coupleId:", p.coupleId ?? "nil")
+
+            // load locally persisted "last sent" (uses uid + coupleId key)
+            self.loadLastSent()
+
             if let coupleId = p.coupleId {
+                print("[DBG] -> start listenCouple(id: \(coupleId))")
                 listenCouple(id: coupleId)
-                // Ensure CloudKit record + subscription and start listening to push
                 await startCloudKitSync(coupleId: coupleId)
             } else {
+                print("[DBG] -> noCouple state")
                 self.state = .noCouple
             }
         } catch {
             self.errorMessage = error.localizedDescription
+            print("[ERR] load() failed:", error.localizedDescription)
+        }
+    }
+
+    // MARK: - Couple listener
+    private func listenCouple(id: String) {
+        coupleListener?.remove()
+        print("[DBG] listenCouple() attaching listener for", id)
+
+        coupleListener = FirestoreService.couples.document(id).addSnapshotListener { [weak self] snap, err in
+            Task { @MainActor in
+                if let err = err {
+                    print("[ERR] Firestore listener error:", err.localizedDescription)
+                    self?.errorMessage = err.localizedDescription
+                    return
+                }
+                guard let data = snap else {
+                    print("[DBG] Listener triggered but no data")
+                    return
+                }
+
+                print("[DBG] Listener snapshot received for couple \(id)")
+                if let c: Couple = try? data.data(as: Couple.self) {
+                    print("[DBG] Couple decoded OK, members:", c.memberUids, "code:", c.code)
+                    self?.couple = c
+                    self?.recomputeState()
+
+                    // re-evaluate persisted lastSent key now that coupleId may have changed
+                    self?.loadLastSent()
+                } else {
+                    print("[ERR] Failed to decode Couple model")
+                }
+
+                if case .matched = self?.state {
+                    print("[DBG] -> state = matched → startMessageSync()")
+                    self?.startMessageSync()
+                } else {
+                    print("[DBG] -> state != matched → stopMessageSync()")
+                    self?.stopMessageSync()
+                }
+            }
         }
     }
 
@@ -96,30 +152,57 @@ final class HomeViewModel: ObservableObject {
     }
 
     func joinCoupleByCode() async {
-        guard let uid = Auth.auth().currentUser?.uid else { return }
+        guard let uid = Auth.auth().currentUser?.uid else {
+            print("[ERR] joinCoupleByCode → no user")
+            return
+        }
+        print("[DBG] joinCoupleByCode() start for uid:", uid, "code:", joinCode)
+
         isLoading = true
         defer { isLoading = false }
+
         do {
             let code = joinCode.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
-            guard !code.isEmpty else { self.errorMessage = "Enter a valid code."; return }
+            guard !code.isEmpty else {
+                self.errorMessage = "Enter a valid code."
+                print("[ERR] joinCoupleByCode → empty code")
+                return
+            }
+
+            print("[DBG] findCoupleBy(code: \(code)) …")
             guard let found = try await FirestoreService.findCoupleBy(code: code) else {
+                print("[ERR] No couple found for code:", code)
                 self.errorMessage = "No couple found for this code."
                 return
             }
+
+            print("[DBG] Found coupleId:", found.id ?? "nil", "members:", found.memberUids)
+
             if found.memberUids.count >= 2 {
+                print("[ERR] Couple already full.")
                 self.errorMessage = "Couple is already full."
                 return
             }
-            guard let coupleId = found.id else { return }
-            try await FirestoreService.joinCouple(coupleId: coupleId, uid: uid)
-            try await FirestoreService.setUserCouple(uid: uid, coupleId: coupleId)
-            listenCouple(id: coupleId)
 
-            // CloudKit: ensure subscription and signal change
+            guard let coupleId = found.id else {
+                print("[ERR] Couple has nil id!")
+                return
+            }
+
+            print("[DBG] -> joinCouple(\(coupleId), \(uid)) …")
+            try await FirestoreService.joinCouple(coupleId: coupleId, uid: uid)
+            print("[DBG] joinCouple OK → setting userCouple")
+            try await FirestoreService.setUserCouple(uid: uid, coupleId: coupleId)
+            print("[DBG] setUserCouple OK → listenCouple")
+
+            listenCouple(id: coupleId)
             await startCloudKitSync(coupleId: coupleId)
             await ck.bump(coupleId: coupleId, eventType: "status")
+
+            print("joinCoupleByCode() finished successfully")
         } catch {
             self.errorMessage = error.localizedDescription
+            print("[ERR] joinCoupleByCode() exception:", error.localizedDescription)
         }
     }
 
@@ -135,10 +218,8 @@ final class HomeViewModel: ObservableObject {
             }
             try await FirestoreService.setUserCouple(uid: uid, coupleId: nil)
 
-            // CloudKit: bump "status" before clearing local state
             Task { await ck.bump(coupleId: cid, eventType: "status") }
 
-            // Reset local state
             coupleListener?.remove(); coupleListener = nil
             messageService.stopListening()
             couple = nil
@@ -146,7 +227,9 @@ final class HomeViewModel: ObservableObject {
             generatedCode = ""
             joinCode = ""
 
-            // Stop CK observer
+            persistLastSent(nil)
+            lastSent = nil
+
             if let ckObserver { NotificationCenter.default.removeObserver(ckObserver); self.ckObserver = nil }
         } catch {
             self.errorMessage = error.localizedDescription
@@ -178,25 +261,7 @@ final class HomeViewModel: ObservableObject {
         isEditingAnniversary = false
     }
 
-    // MARK: - Couple listener
-    private func listenCouple(id: String) {
-        coupleListener?.remove()
-        coupleListener = FirestoreService.couples.document(id).addSnapshotListener { [weak self] snap, err in
-            Task { @MainActor in
-                if let err = err { self?.errorMessage = err.localizedDescription; return }
-                guard let data = snap else { return }
-                self?.couple = try? data.data(as: Couple.self)
-                self?.recomputeState()
-
-                if case .matched = self?.state {
-                    self?.startMessageSync()
-                } else {
-                    self?.stopMessageSync()
-                }
-            }
-        }
-    }
-
+    // MARK: - State recompute
     private func recomputeState() {
         guard let couple = couple else { state = .noCouple; return }
         let members = couple.memberUids.count
@@ -239,12 +304,21 @@ final class HomeViewModel: ObservableObject {
     func sendLoveMessage(_ text: String) {
         let t = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !t.isEmpty, !coupleId.isEmpty, !currentUid.isEmpty else { return }
+
+        let finalText = String(t.prefix(80))
+
+        // actual send
         messageService.send(
             to: coupleId,
-            text: String(t.prefix(80)),
+            text: finalText,
             fromUid: currentUid,
             fromName: currentUserName
         )
+
+        // update UI + persist locally
+        let last = LastSent(text: finalText, date: .now)
+        self.lastSent = last
+        persistLastSent(last)
 
         // CloudKit: bump "message" (fire-and-forget)
         Task { await ck.bump(coupleId: coupleId, eventType: "message") }
@@ -256,7 +330,6 @@ final class HomeViewModel: ObservableObject {
         _ = try? await ck.ensureSignalRecord(for: coupleId)
 
         // 2) Force (re)create the subscription on THIS device with alert payload
-        //    Use this once per device or whenever you want to guarantee banner config.
         await ck.recreateSubscription(for: coupleId)
 
         // 3) Listen for CloudKit push (alert or silent) and refresh Firestore as a safety net
@@ -279,11 +352,36 @@ final class HomeViewModel: ObservableObject {
                 self.couple = c
                 self.recomputeState()
                 if case .matched = self.state { self.startMessageSync() }
+
+                // ensure lastSent key is in sync (in case coupleId changed)
+                self.loadLastSent()
             }
         } catch {
             #if DEBUG
             print("[CK Sync] refetchCoupleSnapshot error:", error.localizedDescription)
             #endif
+        }
+    }
+
+    // MARK: - Last Sent persistence
+    private var lastSentKey: String {
+        let uid = currentUid.isEmpty ? "nouid" : currentUid
+        let cid = coupleId.isEmpty ? (profile?.coupleId ?? "nocouple") : coupleId
+        return "lastSent_\(uid)_\(cid)"
+    }
+
+    private func loadLastSent() {
+        guard let data = UserDefaults.standard.data(forKey: lastSentKey) else { return }
+        if let value = try? JSONDecoder().decode(LastSent.self, from: data) {
+            self.lastSent = value
+        }
+    }
+
+    private func persistLastSent(_ value: LastSent?) {
+        if let v = value, let data = try? JSONEncoder().encode(v) {
+            UserDefaults.standard.set(data, forKey: lastSentKey)
+        } else {
+            UserDefaults.standard.removeObject(forKey: lastSentKey)
         }
     }
 }
