@@ -8,6 +8,7 @@
 import SwiftUI
 import UIKit
 import PhotosUI
+import FirebaseAuth
 
 
 struct HomeView: View {
@@ -132,6 +133,18 @@ struct HomeView: View {
             }
             .tabItem { Label("Anniversary", systemImage: "heart.circle.fill") }
             .tag(1)
+            
+            
+            // TAB 3: QUIZ
+            if let coupleId = vm.couple?.id,
+               let myUid = Auth.auth().currentUser?.uid,
+               let partnerUid = vm.couple?.memberUids.first(where: { $0 != myUid }) {
+                QuizTabView(coupleId: coupleId, myUid: myUid, partnerUid: partnerUid)
+                    .tabItem { Label("Quiz", systemImage: "questionmark.circle.fill") }
+                    .tag(2)
+            }
+
+
         }
         .ignoresSafeArea(.keyboard, edges: .bottom)
     }
