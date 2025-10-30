@@ -12,21 +12,23 @@ import UIKit
 
 @MainActor
 final class AuthViewModel: ObservableObject {
+
     // MARK: - UI state
     @Published var isSignedIn: Bool = false
     @Published var displayName: String? = nil
     @Published var isLoading: Bool = false
     @Published var errorMessage: String? = nil
 
-    // MARK: - Auth state listener
+    // MARK: - Listener
     private var authHandle: AuthStateDidChangeListenerHandle?
 
     init() {
-        // stare inițială
+        // Bootstrap initial state from cached Firebase user
         let user = Auth.auth().currentUser
         self.isSignedIn = (user != nil)
         self.displayName = user?.displayName
 
+        // Keep UI in sync with Firebase session changes
         authHandle = Auth.auth().addStateDidChangeListener { [weak self] _, user in
             guard let self else { return }
             self.isSignedIn = (user != nil)
@@ -41,27 +43,29 @@ final class AuthViewModel: ObservableObject {
         }
     }
 
-    // MARK: - Google
+    // MARK: - Google Sign-In
     func signInWithGoogle() {
         guard !isLoading else { return }
-        errorMessage = nil
         isLoading = true
+        errorMessage = nil
 
-        guard
-            let scene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
-            let root = scene.keyWindow?.rootViewController
-        else {
+        guard let presenter = Self.topMostViewController() else {
             isLoading = false
             errorMessage = "Unable to find a valid window."
             return
         }
 
-        GIDSignIn.sharedInstance.signIn(withPresenting: root) { [weak self] result, error in
-            guard let self = self else { return }
+        GIDSignIn.sharedInstance.signIn(withPresenting: presenter) { [weak self] result, error in
+            guard let self else { return }
 
-            if let error = error {
+            // Early exit on user cancel or error
+            if let error = error as NSError? {
                 self.isLoading = false
-                self.errorMessage = error.localizedDescription
+                if error.domain == kGIDSignInErrorDomain && error.code == GIDSignInError.canceled.rawValue {
+                    self.errorMessage = nil
+                } else {
+                    self.errorMessage = "Google Sign-In failed. Please try again."
+                }
                 return
             }
 
@@ -80,15 +84,21 @@ final class AuthViewModel: ObservableObject {
             )
 
             Auth.auth().signIn(with: credential) { [weak self] authResult, error in
-                guard let self = self else { return }
+                guard let self else { return }
                 self.isLoading = false
 
                 if let error = error {
-                    self.errorMessage = error.localizedDescription
+                    // Do not surface raw errors to end users
+                    self.errorMessage = "Sign-In could not be completed. Please try again."
+                    #if DEBUG
+                    print("[Auth] Firebase signIn error:", error.localizedDescription)
+                    #endif
                     return
                 }
 
+                // Light haptic feedback on success
                 UIImpactFeedbackGenerator(style: .soft).impactOccurred()
+
                 self.displayName = authResult?.user.displayName
             }
         }
@@ -97,18 +107,46 @@ final class AuthViewModel: ObservableObject {
     // MARK: - Sign out
     func signOut() {
         do {
+            // Sign out of Google first to clear browser/session state, then Firebase
             GIDSignIn.sharedInstance.signOut()
             try Auth.auth().signOut()
-            // listener-ul va seta automat isSignedIn = false
+
+            // Listener will flip isSignedIn = false; clean up local UI state
             self.displayName = nil
             self.errorMessage = nil
+            self.isLoading = false
+            UIImpactFeedbackGenerator(style: .rigid).impactOccurred()
         } catch {
-            self.errorMessage = error.localizedDescription
+            self.errorMessage = "Could not sign out. Please try again."
+            #if DEBUG
+            print("[Auth] signOut error:", error.localizedDescription)
+            #endif
         }
     }
 }
 
-// MARK: - UIWindow helper
-private extension UIWindowScene {
-    var keyWindow: UIWindow? { windows.first { $0.isKeyWindow } }
+// MARK: - Presenter helper
+private extension AuthViewModel {
+    static func topMostViewController() -> UIViewController? {
+        // Find the active scene's key window
+        guard
+            let scene = UIApplication.shared.connectedScenes
+                .compactMap({ $0 as? UIWindowScene })
+                .first(where: { $0.activationState == .foregroundActive }),
+            let window = scene.windows.first(where: { $0.isKeyWindow }),
+            var top = window.rootViewController
+        else { return nil }
+
+        while let presented = top.presentedViewController {
+            top = presented
+        }
+
+        if let nav = top as? UINavigationController {
+            top = nav.visibleViewController ?? nav
+        } else if let tab = top as? UITabBarController {
+            top = tab.selectedViewController ?? tab
+        }
+
+        return top
+    }
 }

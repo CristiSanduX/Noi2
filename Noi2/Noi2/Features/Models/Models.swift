@@ -14,6 +14,7 @@ struct UserProfile: Codable {
     var email: String?
     var photoURL: String?
     var coupleId: String?
+    var nicknames: [String: String]?
     @ServerTimestamp var createdAt: Date?
     @ServerTimestamp var updatedAt: Date?
 }

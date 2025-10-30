@@ -11,40 +11,47 @@ import FirebaseCore
 import GoogleSignIn
 import WidgetKit
 import CloudKit
+import OSLog
 
-final class AppDelegate: NSObject,
-                         UIApplicationDelegate,
-                         UNUserNotificationCenterDelegate {
+final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDelegate {
+
+    private let log = Logger(subsystem: "ro.csx.Noi2x", category: "AppDelegate")
 
     // MARK: - App lifecycle
     func application(_ application: UIApplication,
                      didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil) -> Bool {
 
-        // Firebase (Auth, Firestore, etc.)
+        // Firebase bootstrap (Auth/Firestore used elsewhere)
         FirebaseApp.configure()
 
-        // Google Sign-In setup
+        // Google Sign-In setup (keeps config in one place)
         if let cid = FirebaseApp.app()?.options.clientID {
             GIDSignIn.sharedInstance.configuration = GIDConfiguration(clientID: cid)
         }
 
-        // Notifications: delegate + permissions + APNs registration
+        // Notifications: delegate + categories + request permission
         UNUserNotificationCenter.current().delegate = self
         registerNotificationCategories()
-        UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .badge, .sound]) { granted, err in
-            print("[NOTIF] permission granted =", granted, "error =", String(describing: err))
-            DispatchQueue.main.async { UIApplication.shared.registerForRemoteNotifications() }
-        }
 
-        // Debug: iCloud account status
-        Task {
-            do {
-                let status = try await CKContainer.default().accountStatus()
-                print("[CK] accountStatus =", status.rawValue) // 1 = available
-            } catch {
-                print("[CK] accountStatus error:", error)
+        UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .badge, .sound]) { [weak self] granted, err in
+            if let err { self?.log.error("[NOTIF] requestAuthorization error: \(err.localizedDescription, privacy: .public)") }
+            self?.log.info("[NOTIF] permission granted = \(granted, privacy: .public)")
+            if granted {
+                DispatchQueue.main.async { UIApplication.shared.registerForRemoteNotifications() }
             }
         }
+
+        // (Optional) Debug-only: iCloud account status
+        #if DEBUG
+        Task { [weak self] in
+            do {
+                let status = try await CKContainer.default().accountStatus()
+                self?.log.info("[CK] accountStatus = \(status.rawValue, privacy: .public)") // 1 = available
+            } catch {
+                self?.log.error("[CK] accountStatus error: \(error.localizedDescription, privacy: .public)")
+            }
+        }
+        #endif
 
         return true
     }
@@ -53,19 +60,22 @@ final class AppDelegate: NSObject,
     func application(_ app: UIApplication,
                      open url: URL,
                      options: [UIApplication.OpenURLOptionsKey : Any] = [:]) -> Bool {
-        GIDSignIn.sharedInstance.handle(url)
+        return GIDSignIn.sharedInstance.handle(url)
     }
 
     // MARK: - APNs registration
     func application(_ application: UIApplication,
                      didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
+        #if DEBUG
         let hex = deviceToken.map { String(format: "%02x", $0) }.joined()
-        print("[APNs] deviceToken =", hex)
+        log.debug("[APNs] deviceToken (debug) = \(hex, privacy: .private)")
+        #endif
+        // FCM: Messaging.messaging().apnsToken = deviceToken
     }
 
     func application(_ application: UIApplication,
                      didFailToRegisterForRemoteNotificationsWithError error: Error) {
-        print("[APNs] didFailToRegister error =", error)
+        log.error("[APNs] didFailToRegister error = \(error.localizedDescription, privacy: .public)")
     }
 
     // MARK: - Foreground notification presentation
@@ -92,7 +102,6 @@ final class AppDelegate: NSObject,
                      fetchCompletionHandler completionHandler: @escaping (UIBackgroundFetchResult) -> Void) {
 
         if isCloudKitNotification(userInfo: userInfo) {
-            // Notify listeners to refetch data (both for silent and alert)
             postCKSignal(from: userInfo)
             completionHandler(.newData)
             return
@@ -113,7 +122,6 @@ final class AppDelegate: NSObject,
             if let textResponse = response as? UNTextInputNotificationResponse {
                 let reply = textResponse.userText.trimmingCharacters(in: .whitespacesAndNewlines)
                 if !reply.isEmpty {
-                    // Post quick reply message event
                     NotificationCenter.default.post(
                         name: .init("LoveMessageQuickReply"),
                         object: nil,
@@ -131,11 +139,13 @@ final class AppDelegate: NSObject,
 
         completionHandler()
     }
+}
 
-    // MARK: - Helpers
+// MARK: - Helpers
+private extension AppDelegate {
 
     /// Notification categories (Reply / Open)
-    private func registerNotificationCategories() {
+    func registerNotificationCategories() {
         let reply = UNTextInputNotificationAction(
             identifier: "REPLY",
             title: "Reply",
@@ -159,11 +169,11 @@ final class AppDelegate: NSObject,
 
     // MARK: - CloudKit helpers
 
-    private func isCloudKitNotification(userInfo: [AnyHashable: Any]) -> Bool {
+    func isCloudKitNotification(userInfo: [AnyHashable: Any]) -> Bool {
         CKNotification(fromRemoteNotificationDictionary: userInfo) != nil
     }
 
-    private func isCloudKitSilent(userInfo: [AnyHashable: Any]) -> Bool {
+    func isCloudKitSilent(userInfo: [AnyHashable: Any]) -> Bool {
         guard isCloudKitNotification(userInfo: userInfo),
               let aps = userInfo["aps"] as? [String: Any] else { return false }
         let hasContentAvailable = (aps["content-available"] as? Int) == 1
@@ -171,16 +181,21 @@ final class AppDelegate: NSObject,
         return hasContentAvailable && !hasAlert
     }
 
-    /// Sends an internal signal for ViewModels to refetch Firestore data.
-    private func postCKSignal(from userInfo: [AnyHashable: Any]) {
+    /// Sends an internal signal for ViewModels to refetch Firestore data + refresh widgets.
+    func postCKSignal(from userInfo: [AnyHashable: Any]) {
         let ck = CKNotification(fromRemoteNotificationDictionary: userInfo)
+
         NotificationCenter.default.post(name: .init("CKSilentSignal"), object: ck)
 
+        // Proactive: refresh widgets when anything CloudKit-related hits
+        WidgetCenter.shared.reloadAllTimelines()
+
+        #if DEBUG
         if let qn = ck as? CKQueryNotification {
-            print("[CK] QueryNotification reason =", qn.queryNotificationReason.rawValue,
-                  "recordID =", qn.recordID?.recordName ?? "nil")
+            log.debug("[CK] QueryNotification reason=\(qn.queryNotificationReason.rawValue, privacy: .public) recordID=\(qn.recordID?.recordName ?? "nil", privacy: .public)")
         } else {
-            print("[CK] Notification received (type =", ck?.notificationType.rawValue ?? -1, ")")
+            log.debug("[CK] Notification received (type=\(ck?.notificationType.rawValue ?? -1, privacy: .public))")
         }
+        #endif
     }
 }

@@ -9,6 +9,8 @@ import Foundation
 import FirebaseAuth
 import FirebaseFirestore
 import WidgetKit
+import UIKit
+import OSLog
 
 @MainActor
 final class HomeViewModel: ObservableObject {
@@ -23,16 +25,18 @@ final class HomeViewModel: ObservableObject {
 
     // MARK: - Services
     private let messageService = LoveMessageService()
-    private let ck = CloudKitPushService.shared // CloudKit mirror service (push trigger)
+    private let ck = CloudKitPushService.shared
+
+    // MARK: - Logger
+    private let log = Logger(subsystem: "ro.csx.Noi2x", category: "HomeVM")
 
     // MARK: - Published state
     @Published var profile: UserProfile?
     @Published var couple: Couple?
-    @Published var state: CoupleState = .noCouple
+    @Published private(set) var state: CoupleState = .noCouple
     @Published var isLoading = false
     @Published var errorMessage: String?
     @Published private(set) var isUploadingWidgetPhoto = false
-
 
     // Last message (persisted per user+couple)
     @Published var lastSent: LastSent?
@@ -53,6 +57,7 @@ final class HomeViewModel: ObservableObject {
     // MARK: - Listeners
     private var coupleListener: ListenerRegistration?
     private var ckObserver: NSObjectProtocol?
+    private var isMessageSyncActive = false
 
     deinit {
         coupleListener?.remove()
@@ -63,63 +68,79 @@ final class HomeViewModel: ObservableObject {
     // MARK: - Lifecycle
     func load() async {
         guard let user = Auth.auth().currentUser else {
-            print("[DBG] No Firebase user, skipping load()")
+            #if DEBUG
+            log.debug("[load] No Firebase user, skipping.")
+            #endif
             return
         }
 
-        print("[DBG] load() started for uid:", user.uid)
+        #if DEBUG
+        log.debug("[load] start uid=\(user.uid, privacy: .public)")
+        #endif
+
         isLoading = true
         defer { isLoading = false }
 
         do {
             let p = try await FirestoreService.bootstrapCurrentUser()
             self.profile = p
-            print("[DBG] bootstrapCurrentUser OK, coupleId:", p.coupleId ?? "nil")
+            self.currentUserName = p.displayName
 
-            // load locally persisted "last sent" (uses uid + coupleId key)
+            #if DEBUG
+            log.debug("[load] bootstrap OK coupleId=\(p.coupleId ?? "nil", privacy: .public)")
+            #endif
+
+            // Load locally persisted "last sent"
             self.loadLastSent()
 
             if let coupleId = p.coupleId {
-                print("[DBG] -> start listenCouple(id: \(coupleId))")
                 listenCouple(id: coupleId)
                 await startCloudKitSync(coupleId: coupleId)
             } else {
-                print("[DBG] -> noCouple state")
                 self.state = .noCouple
             }
         } catch {
-            self.errorMessage = error.localizedDescription
-            print("[ERR] load() failed:", error.localizedDescription)
+            mapErrorToUserMessage(error)
+            #if DEBUG
+            log.error("[load] error: \(error.localizedDescription, privacy: .public)")
+            #endif
         }
     }
 
     // MARK: - Couple listener
     private func listenCouple(id: String) {
         coupleListener?.remove()
-        print("[DBG] listenCouple() attaching listener for", id)
+
+        #if DEBUG
+        log.debug("[listenCouple] attach id=\(id, privacy: .public)")
+        #endif
 
         coupleListener = FirestoreService.couples.document(id).addSnapshotListener { [weak self] snap, err in
             Task { @MainActor in
+                guard let self else { return }
+
                 if let err = err {
-                    print("[ERR] Firestore listener error:", err.localizedDescription)
-                    self?.errorMessage = err.localizedDescription
+                    self.mapErrorToUserMessage(err)
+                    #if DEBUG
+                    self.log.error("[listener] error: \(err.localizedDescription, privacy: .public)")
+                    #endif
                     return
                 }
                 guard let data = snap else {
-                    print("[DBG] Listener triggered but no data")
+                    #if DEBUG
+                    self.log.debug("[listener] no snapshot data")
+                    #endif
                     return
                 }
 
-                print("[DBG] Listener snapshot received for couple \(id)")
                 if let c: Couple = try? data.data(as: Couple.self) {
-                    print("[DBG] Couple decoded OK, members:", c.memberUids, "code:", c.code)
-                    self?.couple = c
-                    self?.recomputeState()
+                    self.couple = c
+                    self.recomputeState()
 
                     if let anniv = c.anniversary {
                         SharedWidgetStore.saveAnniversary(anniv)
                     }
-                    
+
                     if let urlStr = c.widgetPhotoURL, let url = URL(string: urlStr) {
                         Task.detached { [weak self] in
                             guard let self else { return }
@@ -130,25 +151,29 @@ final class HomeViewModel: ObservableObject {
                                 }
                             } catch {
                                 #if DEBUG
-                                print("[WidgetPhoto] download failed:", error.localizedDescription)
+                                self.log.debug("[widgetPhoto] download failed: \(error.localizedDescription, privacy: .public)")
                                 #endif
                             }
                         }
                     }
 
-
-                    self?.loadLastSent()
+                    // Keep "last sent" key in sync (couple changes)
+                    self.loadLastSent()
                 } else {
-                    print("[ERR] Failed to decode Couple model")
+                    #if DEBUG
+                    self.log.error("[listener] failed to decode Couple")
+                    #endif
                 }
 
-
-                if case .matched = self?.state {
-                    print("[DBG] -> state = matched → startMessageSync()")
-                    self?.startMessageSync()
-                } else {
-                    print("[DBG] -> state != matched → stopMessageSync()")
-                    self?.stopMessageSync()
+                switch self.state {
+                case .matched:
+                    if !self.isMessageSyncActive {
+                        self.startMessageSync()
+                    }
+                default:
+                    if self.isMessageSyncActive {
+                        self.stopMessageSync()
+                    }
                 }
             }
         }
@@ -159,27 +184,23 @@ final class HomeViewModel: ObservableObject {
         guard let uid = Auth.auth().currentUser?.uid else { return }
         isLoading = true
         defer { isLoading = false }
+
         do {
-            let code = Self.generateCode()
+            let code = Self.secureCode(length: 6)
             let coupleId = try await FirestoreService.createCouple(ownerUid: uid, code: code)
             try await FirestoreService.setUserCouple(uid: uid, coupleId: coupleId)
             self.generatedCode = code
             listenCouple(id: coupleId)
 
-            // CloudKit: ensure record + subscription, then signal a "status" bump
             await startCloudKitSync(coupleId: coupleId)
             await ck.bump(coupleId: coupleId, eventType: "status")
         } catch {
-            self.errorMessage = error.localizedDescription
+            mapErrorToUserMessage(error)
         }
     }
 
     func joinCoupleByCode() async {
-        guard let uid = Auth.auth().currentUser?.uid else {
-            print("[ERR] joinCoupleByCode → no user")
-            return
-        }
-        print("[DBG] joinCoupleByCode() start for uid:", uid, "code:", joinCode)
+        guard let uid = Auth.auth().currentUser?.uid else { return }
 
         isLoading = true
         defer { isLoading = false }
@@ -188,52 +209,37 @@ final class HomeViewModel: ObservableObject {
             let code = joinCode.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
             guard !code.isEmpty else {
                 self.errorMessage = "Enter a valid code."
-                print("[ERR] joinCoupleByCode → empty code")
                 return
             }
 
-            print("[DBG] findCoupleBy(code: \(code)) …")
             guard let found = try await FirestoreService.findCoupleBy(code: code) else {
-                print("[ERR] No couple found for code:", code)
                 self.errorMessage = "No couple found for this code."
                 return
             }
 
-            print("[DBG] Found coupleId:", found.id ?? "nil", "members:", found.memberUids)
-
             if found.memberUids.count >= 2 {
-                print("[ERR] Couple already full.")
                 self.errorMessage = "Couple is already full."
                 return
             }
 
-            guard let coupleId = found.id else {
-                print("[ERR] Couple has nil id!")
-                return
-            }
+            guard let coupleId = found.id else { return }
 
-            print("[DBG] -> joinCouple(\(coupleId), \(uid)) …")
             try await FirestoreService.joinCouple(coupleId: coupleId, uid: uid)
-            print("[DBG] joinCouple OK → setting userCouple")
             try await FirestoreService.setUserCouple(uid: uid, coupleId: coupleId)
-            print("[DBG] setUserCouple OK → listenCouple")
 
             listenCouple(id: coupleId)
             await startCloudKitSync(coupleId: coupleId)
             await ck.bump(coupleId: coupleId, eventType: "status")
-
-            print("joinCoupleByCode() finished successfully")
         } catch {
-            self.errorMessage = error.localizedDescription
-            print("[ERR] joinCoupleByCode() exception:", error.localizedDescription)
+            mapErrorToUserMessage(error)
         }
     }
 
     func leaveCouple() async {
-        guard let uid = Auth.auth().currentUser?.uid,
-              let cid = couple?.id else { return }
+        guard let uid = Auth.auth().currentUser?.uid, let cid = couple?.id else { return }
         isLoading = true
         defer { isLoading = false }
+
         do {
             try await FirestoreService.removeMember(coupleId: cid, uid: uid)
             if let membersCount = couple?.memberUids.count, membersCount <= 1 {
@@ -243,8 +249,9 @@ final class HomeViewModel: ObservableObject {
 
             Task { await ck.bump(coupleId: cid, eventType: "status") }
 
+            // Dispose listeners/state
             coupleListener?.remove(); coupleListener = nil
-            messageService.stopListening()
+            stopMessageSync()
             couple = nil
             state = .noCouple
             generatedCode = ""
@@ -253,16 +260,18 @@ final class HomeViewModel: ObservableObject {
             persistLastSent(nil)
             lastSent = nil
 
-            if let ckObserver { NotificationCenter.default.removeObserver(ckObserver); self.ckObserver = nil }
+            if let ckObserver {
+                NotificationCenter.default.removeObserver(ckObserver)
+                self.ckObserver = nil
+            }
         } catch {
-            self.errorMessage = error.localizedDescription
+            mapErrorToUserMessage(error)
         }
     }
-    
 
+    // MARK: - Widget photo
     func setWidgetPhoto(_ image: UIImage) async {
         guard !coupleId.isEmpty, !isUploadingWidgetPhoto else { return }
-
 
         isUploadingWidgetPhoto = true
         isLoading = true
@@ -270,18 +279,18 @@ final class HomeViewModel: ObservableObject {
             isUploadingWidgetPhoto = false
             isLoading = false
         }
+
         do {
             let url = try await StorageService.uploadWidgetPhoto(coupleId: coupleId, image: image)
             try await FirestoreService.couples.document(coupleId).updateData([
                 "widgetPhotoURL": url.absoluteString
             ])
             SharedWidgetStore.saveWidgetPhoto(image)
+            WidgetCenter.shared.reloadAllTimelines()
         } catch {
-            self.errorMessage = error.localizedDescription
+            mapErrorToUserMessage(error)
         }
     }
-
-
 
     // MARK: - Anniversary
     func saveAnniversary() async {
@@ -291,15 +300,13 @@ final class HomeViewModel: ObservableObject {
         do {
             try await FirestoreService.setAnniversary(coupleId: cid, date: pickedAnniversary)
             isEditingAnniversary = false
-
             SharedWidgetStore.saveAnniversary(pickedAnniversary)
-
+            WidgetCenter.shared.reloadAllTimelines()
             await ck.bump(coupleId: cid, eventType: "anniversary")
         } catch {
-            self.errorMessage = error.localizedDescription
+            mapErrorToUserMessage(error)
         }
     }
-
 
     func startEditingAnniversary() {
         pickedAnniversary = couple?.anniversary ?? Date()
@@ -312,42 +319,61 @@ final class HomeViewModel: ObservableObject {
 
     // MARK: - State recompute
     private func recomputeState() {
-        guard let couple = couple else { state = .noCouple; return }
+        guard let couple else { state = .noCouple; return }
         let members = couple.memberUids.count
         let code = couple.code
         guard let myUid = Auth.auth().currentUser?.uid else { return }
 
         if members >= 2 {
             state = .matched(code: code)
+        } else if couple.memberUids.contains(myUid) {
+            if generatedCode.isEmpty { generatedCode = code }
+            state = .createdWaiting(code: code, membersCount: members)
         } else {
-            if couple.memberUids.contains(myUid) {
-                if generatedCode.isEmpty { generatedCode = code }
-                state = .createdWaiting(code: code, membersCount: members)
-            } else {
-                state = .joinedPending(code: code, membersCount: members)
-            }
+            state = .joinedPending(code: code, membersCount: members)
         }
     }
 
-    private static func generateCode(length: Int = 6) -> String {
-        let chars = Array("ABCDEFGHJKLMNPQRSTUVWXYZ23456789")
-        return String((0..<length).map { _ in chars.randomElement()! })
+    // MARK: - Code generation (secure, unambiguous alphabet)
+    private static func secureCode(length: Int = 6) -> String {
+        precondition(length > 0)
+        // Excludes easily-confused chars (I, O, 1, 0)
+        let alphabet = Array("ABCDEFGHJKLMNPQRSTUVWXYZ23456789")
+        var result = [Character]()
+        result.reserveCapacity(length)
+
+        while result.count < length {
+            var bytes = [UInt8](repeating: 0, count: 16)
+            let status = SecRandomCopyBytes(kSecRandomDefault, bytes.count, &bytes)
+            if status != errSecSuccess {
+                result.append(contentsOf: UUID().uuidString.replacingOccurrences(of: "-", with: "").prefix(length - result.count))
+                break
+            }
+            for b in bytes where result.count < length {
+                if b < alphabet.count {
+                    result.append(alphabet[Int(b)])
+                }
+            }
+        }
+        return String(result)
     }
 
-    // MARK: - Widget manual update (handy for testing)
+    // MARK: - Widgets (manual update helper)
     func updateWidgetWithLatestPartnerMessage(text: String, fromUid: String, fromName: String) {
         let note = LoveNote(text: text, fromUid: fromUid, fromName: fromName, updatedAt: .now)
         LoveStore.save(note)
         WidgetCenter.shared.reloadTimelines(ofKind: "Noi2LoveWidget")
     }
 
-    // MARK: - Messaging API (via LoveMessageService)
+    // MARK: - Messaging API
     func startMessageSync() {
         messageService.startListening(coupleId: coupleId, currentUid: currentUid)
+        isMessageSyncActive = true
     }
 
     func stopMessageSync() {
         messageService.stopListening()
+        isMessageSyncActive = false
     }
 
     func sendLoveMessage(_ text: String) {
@@ -356,32 +382,25 @@ final class HomeViewModel: ObservableObject {
 
         let finalText = String(t.prefix(80))
 
-        // actual send
         messageService.send(
             to: coupleId,
             text: finalText,
             fromUid: currentUid,
-            fromName: currentUserName
+            fromName: profile?.displayName ?? currentUserName
         )
 
-        // update UI + persist locally
         let last = LastSent(text: finalText, date: .now)
         self.lastSent = last
         persistLastSent(last)
 
-        // CloudKit: bump "message" (fire-and-forget)
         Task { await ck.bump(coupleId: coupleId, eventType: "message") }
     }
 
     // MARK: - CloudKit sync bootstrap + refetch on push
     func startCloudKitSync(coupleId: String) async {
-        // 1) Ensure the signal record exists (also bootstraps schema in Development)
         _ = try? await ck.ensureSignalRecord(for: coupleId)
-
-        // 2) Force (re)create the subscription on THIS device with alert payload
         await ck.recreateSubscription(for: coupleId)
 
-        // 3) Listen for CloudKit push (alert or silent) and refresh Firestore as a safety net
         if ckObserver == nil {
             ckObserver = NotificationCenter.default.addObserver(
                 forName: .init("CKSilentSignal"), object: nil, queue: .main
@@ -394,20 +413,18 @@ final class HomeViewModel: ObservableObject {
 
     /// Forces a quick snapshot refresh from Firestore (useful if any push was missed).
     private func refetchCoupleSnapshot() async {
-        guard let cid = couple?.id ?? profile?.coupleId else { return }
+        guard let cid = (couple?.id ?? profile?.coupleId) else { return }
         do {
             let snap = try await FirestoreService.couples.document(cid).getDocument()
             if let c: Couple = try? snap.data(as: Couple.self) {
                 self.couple = c
                 self.recomputeState()
                 if case .matched = self.state { self.startMessageSync() }
-
-                // ensure lastSent key is in sync (in case coupleId changed)
                 self.loadLastSent()
             }
         } catch {
             #if DEBUG
-            print("[CK Sync] refetchCoupleSnapshot error:", error.localizedDescription)
+            log.debug("[refetch] error: \(error.localizedDescription, privacy: .public)")
             #endif
         }
     }
@@ -432,5 +449,14 @@ final class HomeViewModel: ObservableObject {
         } else {
             UserDefaults.standard.removeObject(forKey: lastSentKey)
         }
+    }
+
+    // MARK: - Error mapping
+    private func mapErrorToUserMessage(_ error: Error) {
+        // Keep user-facing messages friendly; log details in DEBUG only
+        self.errorMessage = "Something went wrong. Please try again."
+        #if DEBUG
+        log.debug("[err] \(error.localizedDescription, privacy: .public)")
+        #endif
     }
 }
