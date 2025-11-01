@@ -7,12 +7,12 @@
 		<key>Noi2.xcscheme_^#shared#^_</key>
 		<dict>
 			<key>orderHint</key>
-			<integer>0</integer>
+			<integer>3</integer>
 		</dict>
 		<key>Noi2DaysWidgetExtension.xcscheme_^#shared#^_</key>
 		<dict>
 			<key>orderHint</key>
-			<integer>2</integer>
+			<integer>0</integer>
 		</dict>
 		<key>Noi2LoveWidgetExtension.xcscheme_^#shared#^_</key>
 		<dict>
@@ -22,7 +22,25 @@
 		<key>Promises (Playground).xcscheme</key>
 		<dict>
 			<key>orderHint</key>
-			<integer>0</integer>
+			<integer>2</integer>
+		</dict>
+	</dict>
+	<key>SuppressBuildableAutocreation</key>
+	<dict>
+		<key>1C3645782EAB5BE600A62391</key>
+		<dict>
+			<key>primary</key>
+			<true/>
+		</dict>
+		<key>1CE29EDB2E9F9E8600FE9B81</key>
+		<dict>
+			<key>primary</key>
+			<true/>
+		</dict>
+		<key>1CE29F332EA128AD00FE9B81</key>
+		<dict>
+			<key>primary</key>
+			<true/>
 		</dict>
 	</dict>
 </dict>

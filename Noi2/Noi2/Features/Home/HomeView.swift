@@ -18,9 +18,7 @@ struct HomeView: View {
 
     @Environment(\.scenePhase) private var scenePhase
     @State private var selectedTab: Int = 0
-    
-  
-
+    @State private var showSettings = false
 
 
     var body: some View {
@@ -50,22 +48,39 @@ struct HomeView: View {
                     .padding(.horizontal, 20)
                     .padding(.bottom, 52)
                 }
-                .navigationBarItems(trailing:
-                    Button(action: {
-                        UIImpactFeedbackGenerator(style: .soft).impactOccurred()
-                        onSignOut()
-                    }, label: {
-                        Label("Sign out", systemImage: "rectangle.portrait.and.arrow.right")
-                    })
-                )
+                .toolbar {
+                    ToolbarItem(placement: .navigationBarTrailing) {
+                        Menu {
+                            Button {
+                                showSettings = true
+                            } label: {
+                                Label("Settings", systemImage: "gearshape")
+                            }
 
+                            Button(role: .destructive) {
+                                UIImpactFeedbackGenerator(style: .soft).impactOccurred()
+                                onSignOut()
+                            } label: {
+                                Label("Sign out", systemImage: "rectangle.portrait.and.arrow.right")
+                            }
+                        } label: {
+                            Image(systemName: "gearshape.fill")
+                        }
+                    }
+                }
+                .sheet(isPresented: $showSettings) {
+                    SettingsView(
+                        onClose: { showSettings = false },
+                        onAccountDeleted: { showSettings = false }
+                    )
+                }
 
 
 
                 .background(staticBackground)
                 .task { await vm.load() }
                 .onAppear {
-                    vm.currentUserName = displayName ?? "Me"
+                    vm.currentUserName = displayName ?? "Partner"
                     if case .matched(let code) = vm.state {
                         vm.startMessageSync()
                         Task { await vm.startCloudKitSync(coupleId: code) }
