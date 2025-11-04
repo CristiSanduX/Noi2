@@ -236,7 +236,7 @@ struct AnniversaryHeroCard: View {
     let anniversary: Date
 
     var body: some View {
-        let days = Calendar.current.dateComponents([.day], from: anniversary, to: Date()).day ?? 0
+        let days = AnniversaryMath.daysSince(anniversary, inclusive: true)
 
         ZStack {
             LinearGradient(colors: [UITheme.accent, UITheme.accent.opacity(0.7)],
@@ -278,7 +278,7 @@ struct AnniversaryHeroCard: View {
 
     private func progressToNextMilestone(fromDays days: Int) -> Double {
         let milestones = [100, 200, 300, 365, 500, 700, 1000, 1500, 2000]
-        let next = milestones.first(where: { $0 > days }) ?? (((days/500) + 2) * 500)
+        let next = milestones.first(where: { $0 > days }) ?? (((days / 500) + 2) * 500)
         let prev = milestones.reversed().first(where: { $0 <= days }) ?? 0
         let span = max(1, next - prev)
         return min(max(Double(days - prev) / Double(span), 0), 1)
@@ -289,10 +289,11 @@ struct StatsGrid: View {
     let anniversary: Date
 
     var body: some View {
-        let comps = Calendar.current.dateComponents([.year, .month, .day], from: anniversary, to: Date())
-        let years = comps.year ?? 0
-        let months = comps.month ?? 0
-        let daysTotal = Calendar.current.dateComponents([.day], from: anniversary, to: Date()).day ?? 0
+        let ymd = AnniversaryMath.ymdSince(anniversary)
+        let years = ymd.year ?? 0
+        let months = ymd.month ?? 0
+        let daysRemainder = ymd.day ?? 0
+        let daysTotal = AnniversaryMath.daysSince(anniversary, inclusive: true)
         let weeks = daysTotal / 7
 
         VStack(spacing: 12) {
@@ -307,7 +308,7 @@ struct StatsGrid: View {
         }
         .accessibilityElement(children: .contain)
         .accessibilityLabel("Time together")
-        .accessibilityValue("\(years) years, \(months) months, \(weeks) weeks, \(daysTotal) days")
+        .accessibilityValue("\(years) years, \(months) months, \(weeks) weeks, \(daysRemainder) days")
     }
 }
 
@@ -315,7 +316,7 @@ struct NextMilestoneCard: View {
     let anniversary: Date
 
     var body: some View {
-        let days = Calendar.current.dateComponents([.day], from: anniversary, to: Date()).day ?? 0
+        let days = AnniversaryMath.daysSince(anniversary, inclusive: true)
         let (label, remaining) = nextMilestone(fromDays: days)
 
         HStack(alignment: .center, spacing: 14) {
@@ -348,8 +349,8 @@ struct NextMilestoneCard: View {
 
     private func nextMilestone(fromDays days: Int) -> (String, Int) {
         let milestones = [100, 200, 300, 365, 500, 700, 1000, 1500, 2000]
-        let next = milestones.first(where: { $0 > days }) ?? (((days/500) + 1) * 500)
-        let label = next == 365 ? "1 year" : "\(next) days"
+        let next = milestones.first(where: { $0 > days }) ?? (((days / 500) + 1) * 500)
+        let label = (next == 365) ? "1 year" : "\(next) days"
         return (label, max(0, next - days))
     }
 }

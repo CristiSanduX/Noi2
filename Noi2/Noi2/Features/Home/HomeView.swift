@@ -10,7 +10,6 @@ import UIKit
 import PhotosUI
 import FirebaseAuth
 
-
 struct HomeView: View {
     @StateObject private var vm = HomeViewModel()
     let displayName: String?
@@ -19,7 +18,6 @@ struct HomeView: View {
     @Environment(\.scenePhase) private var scenePhase
     @State private var selectedTab: Int = 0
     @State private var showSettings = false
-
 
     var body: some View {
         TabView(selection: $selectedTab) {
@@ -36,6 +34,7 @@ struct HomeView: View {
 
                         // Render în funcție de starea curentă
                         stateView()
+                            .animation(.easeInOut(duration: 0.2), value: vm.state)
 
                         if let err = vm.errorMessage, !err.isEmpty {
                             Text(err)
@@ -74,23 +73,22 @@ struct HomeView: View {
                         onAccountDeleted: { showSettings = false }
                     )
                 }
-
-
-
                 .background(staticBackground)
                 .task { await vm.load() }
                 .onAppear {
                     vm.currentUserName = displayName ?? "Partner"
-                    if case .matched(let code) = vm.state {
+                    if case .matched = vm.state, let cid = vm.couple?.id {
                         vm.startMessageSync()
-                        Task { await vm.startCloudKitSync(coupleId: code) }
+                        Task { await vm.startCloudKitSync(coupleId: cid) }
                     }
                 }
                 .onChange(of: vm.state) { newValue in
                     switch newValue {
-                    case .matched(let code):
-                        vm.startMessageSync()
-                        Task { await vm.startCloudKitSync(coupleId: code) }
+                    case .matched:
+                        if let cid = vm.couple?.id {
+                            vm.startMessageSync()
+                            Task { await vm.startCloudKitSync(coupleId: cid) }
+                        }
                     default:
                         vm.stopMessageSync()
                     }
@@ -98,9 +96,9 @@ struct HomeView: View {
                 .onChange(of: scenePhase) { phase in
                     switch phase {
                     case .active:
-                        if case .matched(let code) = vm.state {
+                        if case .matched = vm.state, let cid = vm.couple?.id {
                             vm.startMessageSync()
-                            Task { await vm.startCloudKitSync(coupleId: code) }
+                            Task { await vm.startCloudKitSync(coupleId: cid) }
                         }
                     case .inactive, .background:
                         vm.stopMessageSync()
@@ -119,18 +117,16 @@ struct HomeView: View {
                             couple: vm.couple,
                             isEditing: $vm.isEditingAnniversary,
                             picked: $vm.pickedAnniversary,
+                            isUploadingWidgetPhoto: vm.isUploadingWidgetPhoto,   // <- nu mai este Binding
                             onEdit: { vm.startEditingAnniversary() },
                             onCancelEdit: { vm.cancelEditingAnniversary() },
-                            onSaveAnniv: { Task { await vm.saveAnniversary() } }
+                            onSaveAnniv: { Task { await vm.saveAnniversary() } },
+                            onPickWidgetImage: { img in Task { await vm.setWidgetPhoto(img) } }
                         )
 
-                        SectionHeader("Widget customization", systemImage: "photo.on.rectangle.angled")
-
-                        WidgetPhotoPickerRow { image in
-                            Task { await vm.setWidgetPhoto(image) }
-                        }
 
                         if let img = SharedWidgetStore.loadWidgetPhoto() {
+                            SectionHeader("Current widget photo", systemImage: "photo")
                             Image(uiImage: img)
                                 .resizable()
                                 .scaledToFill()
@@ -148,8 +144,7 @@ struct HomeView: View {
             }
             .tabItem { Label("Anniversary", systemImage: "heart.circle.fill") }
             .tag(1)
-            
-            
+
             // TAB 3: QUIZ
             if let coupleId = vm.couple?.id,
                let myUid = Auth.auth().currentUser?.uid,
@@ -158,8 +153,6 @@ struct HomeView: View {
                     .tabItem { Label("Quiz", systemImage: "questionmark.circle.fill") }
                     .tag(2)
             }
-
-
         }
         .ignoresSafeArea(.keyboard, edges: .bottom)
     }
@@ -204,11 +197,9 @@ struct HomeView: View {
                 },
                 onClearLast: {
                     UIImpactFeedbackGenerator(style: .rigid).impactOccurred()
-                    vm.lastSent = nil 
+                    vm.lastSent = nil
                 },
-                onSendLove: { msg in
-                    vm.sendLoveMessage(msg)
-                }
+                onSendLove: { msg in vm.sendLoveMessage(msg) }
             )
         }
     }
@@ -301,7 +292,7 @@ private struct MatchedSection: View {
     let code: String
     let couple: Couple?
     @Binding var isEditing: Bool
-    @Binding var picked: Date        // <- Date, nu Date?
+    @Binding var picked: Date
     let onEdit: () -> Void
     let onCancelEdit: () -> Void
     let onSaveAnniv: () -> Void
